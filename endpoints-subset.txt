@@ -1,0 +1,16 @@
+ChEMBL_259
+MUV_713
+ChEMBL_10434
+MUV_859
+ChEMBL_87
+ChEMBL_8
+MUV_652
+ChEMBL_11534
+DUD_vegfr2
+CPDBAS_MultiCellCall
+CPDBAS_SingleCellCall
+CPDBAS_Rat
+CPDBAS_Mouse
+CPDBAS_Mutagenicity
+CPDBAS_Dog_Primates
+CPDBAS_Hamster
