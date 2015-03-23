@@ -3,7 +3,6 @@ package org.kramerlab.cfpminer;
 import java.awt.Color;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
-import java.awt.Image;
 import java.awt.Rectangle;
 import java.awt.geom.Rectangle2D;
 import java.awt.image.BufferedImage;
@@ -19,7 +18,9 @@ import javax.imageio.ImageIO;
 import javax.swing.ImageIcon;
 import javax.swing.JLabel;
 
-import org.mg.javalib.babel.OBWrapper;
+import org.mg.javalib.gui.MultiImageIcon;
+import org.mg.javalib.gui.MultiImageIcon.Layout;
+import org.mg.javalib.gui.MultiImageIcon.Orientation;
 import org.mg.javalib.util.ArrayUtil;
 import org.mg.javalib.util.ColorUtil;
 import org.mg.javalib.util.FileUtil;
@@ -28,8 +29,10 @@ import org.mg.javalib.util.SwingUtil;
 import org.openscience.cdk.ChemFile;
 import org.openscience.cdk.exception.CDKException;
 import org.openscience.cdk.exception.InvalidSmilesException;
+import org.openscience.cdk.graph.ConnectivityChecker;
 import org.openscience.cdk.inchi.InChIGeneratorFactory;
 import org.openscience.cdk.interfaces.IAtomContainer;
+import org.openscience.cdk.interfaces.IAtomContainerSet;
 import org.openscience.cdk.interfaces.IChemFile;
 import org.openscience.cdk.interfaces.IChemObject;
 import org.openscience.cdk.io.INChIPlainTextReader;
@@ -136,14 +139,51 @@ public class CDKUtil
 		}
 	}
 
-	public static void main(String[] args)
+	public static void main(String[] args) throws InvalidSmilesException, Exception
 	{
-		System.out.println(OBWrapper
-				.runSmilesThroughOpenBabel("CC1CC(=O)Nc2c(CCN3CCN(c4n[s+]([O-])c5ccccc54)CC3)cc(F)cc21"));
+		//		String s[] = new String[] { "c1ccccc1", "c1cccnc1", "Cl.c1cccnc1" };
+		//		CFPMiner miner = new CFPMiner(null);
+		//		miner.setType(CFPMiner.CFPType.ecfp);
+		//		miner.setFeatureSelection(CFPMiner.FeatureSelection.filt);
+		//		miner.setHashfoldsize(1024);
+		//		miner.update(s);
+		//
+		//		System.out.println(ArrayUtil.toString(miner.getAtoms("c1ccccc1", miner.getHashcodeViaIdx(0))));
+		//		System.out.println(ArrayUtil.toString(miner.getAtoms("c1cccnc1", miner.getHashcodeViaIdx(0))));
+		//		System.out.println(ArrayUtil.toString(miner.getAtoms("Cl.c1cccnc1", miner.getHashcodeViaIdx(0))));
+
+		draw(null, new SmilesParser(SilentChemObjectBuilder.getInstance()).parseSmiles("Cl.Cl"), 100);
+
+		//		drawFP(null, new SmilesParser(SilentChemObjectBuilder.getInstance()).parseSmiles("c1ccccc1.Cl"), new int[] { 1,
+		//				2, 3 }, false, -1);
+
+		//		System.out.println(OBWrapper
+		//				.runSmilesThroughOpenBabel("CC1CC(=O)Nc2c(CCN3CCN(c4n[s+]([O-])c5ccccc54)CC3)cc(F)cc21"));
+	}
+
+	public static void draw(String pngFile, IAtomContainer mol, int size) throws Exception
+	{
+		IAtomContainerSet set = ConnectivityChecker.partitionIntoMolecules(mol);
+		BufferedImage image;
+		if (set.getAtomContainerCount() < 2)
+			image = draw(mol, size);
+		else
+		{
+			List<ImageIcon> icons = new ArrayList<ImageIcon>();
+			for (int i = 0; i < set.getAtomContainerCount(); i++)
+				icons.add(new ImageIcon(draw(set.getAtomContainer(i), -1)));
+			image = (BufferedImage) new MultiImageIcon(icons, Layout.horizontal, Orientation.center, 2).getImage();
+			if (size != -1)
+				image = (BufferedImage) ImageLoader.getShrinkedImage(new ImageIcon(image), size, size).getImage();
+		}
+		if (pngFile != null)
+			ImageIO.write((RenderedImage) image, "PNG", new File(pngFile));
+		else
+			SwingUtil.showInDialog(new JLabel(new ImageIcon(image)));
 	}
 
 	@SuppressWarnings("unchecked")
-	public static void draw(String pngFile, IAtomContainer mol, int size) throws Exception
+	public static BufferedImage draw(IAtomContainer mol, int size) throws CDKException
 	{
 
 		//		IAtomContainer mol = new SmilesParser(SilentChemObjectBuilder.getInstance()).parseSmiles("NCC");
@@ -168,6 +208,8 @@ public class CDKUtil
 					BufferedImage.TYPE_INT_ARGB).getGraphics()));
 			width = (int) (1.5 * (diagramRectangle.getWidth() + diagramRectangle.x));
 			height = (int) (1.5 * (diagramRectangle.getHeight() + diagramRectangle.y));
+			width = Math.max(20, width);
+			height = Math.max(20, height);
 		}
 		else
 		{
@@ -177,11 +219,48 @@ public class CDKUtil
 
 		Rectangle drawArea = new Rectangle(width, height);
 		renderer.setup(mol, drawArea);
-		Image image = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
+		BufferedImage image = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
 		Graphics2D g2 = (Graphics2D) image.getGraphics();
 		//		g2.setColor(Color.WHITE);
-		//		g2.fillRect(0, 0, WIDTH, HEIGHT);
+		//		g2.fillRect(0, 0, width, height);
 		renderer.paint(mol, new AWTDrawVisitor(g2), drawArea, true);
+
+		return image;
+	}
+
+	public static void drawFP(String pngFile, IAtomContainer mol, int atoms[], boolean crop, int size) throws Exception
+	{
+		IAtomContainerSet set = ConnectivityChecker.partitionIntoMolecules(mol);
+		BufferedImage image = null;
+		if (set.getAtomContainerCount() < 2)
+			image = drawFP(mol, atoms, crop, size);
+		else
+		{
+			int minAtomIdx = ArrayUtil.getMinMax(atoms)[0];
+			List<ImageIcon> icons = new ArrayList<ImageIcon>();
+			for (int i = 0; i < set.getAtomContainerCount(); i++)
+			{
+				if (minAtomIdx < 0 || minAtomIdx >= set.getAtomContainer(i).getAtomCount())
+				{
+					if (!crop)
+						icons.add(new ImageIcon(draw(set.getAtomContainer(i), -1)));
+				}
+				else
+				{
+					image = drawFP(set.getAtomContainer(i), atoms, crop, crop ? size : -1);
+					icons.add(new ImageIcon(image));
+				}
+				minAtomIdx -= set.getAtomContainer(i).getAtomCount();
+				for (int j = 0; j < atoms.length; j++)
+					atoms[j] -= set.getAtomContainer(i).getAtomCount();
+			}
+			if (!crop)
+			{
+				image = (BufferedImage) new MultiImageIcon(icons, Layout.horizontal, Orientation.center, 2).getImage();
+				if (size != -1)
+					image = (BufferedImage) ImageLoader.getShrinkedImage(new ImageIcon(image), size, size).getImage();
+			}
+		}
 
 		if (pngFile != null)
 			ImageIO.write((RenderedImage) image, "PNG", new File(pngFile));
@@ -190,7 +269,7 @@ public class CDKUtil
 	}
 
 	@SuppressWarnings("unchecked")
-	public static void drawFP(String pngFile, IAtomContainer mol, int atoms[], boolean crop, int size) throws Exception
+	public static BufferedImage drawFP(IAtomContainer mol, int atoms[], boolean crop, int size) throws Exception
 	{
 		if (atoms == null || atoms.length == 0)
 			if (crop)
@@ -232,8 +311,10 @@ public class CDKUtil
 		renderer.setup(mol, new Rectangle(0, 0, 1, 1));
 		Rectangle diagramRectangle = renderer.paint(mol, new AWTDrawVisitor((Graphics2D) new BufferedImage(1, 1,
 				BufferedImage.TYPE_INT_ARGB).getGraphics()));
-		final int width = (int) (1.5 * (diagramRectangle.getWidth() + diagramRectangle.x));
-		final int height = (int) (1.5 * (diagramRectangle.getHeight() + diagramRectangle.y));
+		int width = (int) (1.5 * (diagramRectangle.getWidth() + diagramRectangle.x));
+		int height = (int) (1.5 * (diagramRectangle.getHeight() + diagramRectangle.y));
+		width = Math.max(20, width);
+		height = Math.max(20, height);
 
 		// draw according to preferred size (with 10 pixels extra for the highlights)
 		Rectangle drawArea = new Rectangle(5, 5, width - 10, height - 10);
@@ -280,42 +361,37 @@ public class CDKUtil
 		//		System.out.println(r2);
 		//		System.out.println(image.getWidth() + ", " + image.getHeight());
 
-		if (pngFile != null)
-		{
-			if (crop)
-				image = image.getSubimage(x, y, w, h);
-			if (size != -1 && (image.getWidth() > size || image.getHeight() > size))
-				image = (BufferedImage) ImageLoader.getShrinkedImage(new ImageIcon(image), size, size).getImage();
-			if (crop && (image.getWidth() < size || image.getHeight() < size))
-			{
-				BufferedImage img = new BufferedImage(size, size, BufferedImage.TYPE_INT_ARGB);
-				Graphics g = img.getGraphics();
-				g.setColor(Color.WHITE);
-				g.fillRect(0, 0, size, size);
-				g.drawImage(image, (size - image.getWidth()) / 2, (size - image.getHeight()) / 2, null);
-				image = img;
-			}
-			ImageIO.write((RenderedImage) image, "PNG", new File(pngFile));
-		}
-		else
-		{
-			JLabel l = new JLabel(new ImageIcon(image))
-			{
-				@Override
-				public void paint(Graphics g)
-				{
-					super.paint(g);
-					g.setColor(Color.GREEN);
-					g.drawRect(0, 0, width, height);
-					g.setColor(Color.RED);
-					g.drawRect((int) r.getX(), (int) r.getY(), (int) r.getWidth(), (int) r.getHeight());
-					g.setColor(Color.BLUE);
-					g.drawRect((int) r2.getX(), (int) r2.getY(), (int) r2.getWidth(), (int) r2.getHeight());
+		//		JLabel l = new JLabel(new ImageIcon(image))
+		//		{
+		//			@Override
+		//			public void paint(Graphics g)
+		//			{
+		//				super.paint(g);
+		//				g.setColor(Color.GREEN);
+		//				g.drawRect(0, 0, width, height);
+		//				g.setColor(Color.RED);
+		//				g.drawRect((int) r.getX(), (int) r.getY(), (int) r.getWidth(), (int) r.getHeight());
+		//				g.setColor(Color.BLUE);
+		//				g.drawRect((int) r2.getX(), (int) r2.getY(), (int) r2.getWidth(), (int) r2.getHeight());
+		//
+		//			}
+		//		};
+		//		SwingUtil.showInDialog(l);
 
-				}
-			};
-			SwingUtil.showInDialog(l);
+		if (crop)
+			image = image.getSubimage(x, y, w, h);
+		if (size != -1 && (image.getWidth() > size || image.getHeight() > size))
+			image = (BufferedImage) ImageLoader.getShrinkedImage(new ImageIcon(image), size, size).getImage();
+		if (crop && (image.getWidth() < size || image.getHeight() < size))
+		{
+			BufferedImage img = new BufferedImage(size, size, BufferedImage.TYPE_INT_ARGB);
+			Graphics g = img.getGraphics();
+			g.setColor(Color.WHITE);
+			g.fillRect(0, 0, size, size);
+			g.drawImage(image, (size - image.getWidth()) / 2, (size - image.getHeight()) / 2, null);
+			image = img;
 		}
+		return image;
 	}
 
 	public static String toSmiles(IAtomContainer mol) throws CDKException

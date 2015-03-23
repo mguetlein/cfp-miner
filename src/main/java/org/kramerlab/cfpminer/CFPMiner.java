@@ -7,12 +7,16 @@ import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.BitSet;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Random;
+import java.util.Set;
 
 import org.apache.commons.cli.BasicParser;
 import org.apache.commons.cli.CommandLine;
@@ -26,6 +30,7 @@ import org.mg.javalib.util.CountedSet;
 import org.mg.javalib.util.DoubleArraySummary;
 import org.mg.javalib.util.FileUtil;
 import org.mg.javalib.util.ListUtil;
+import org.mg.javalib.util.SetUtil;
 import org.openscience.cdk.ChemFile;
 import org.openscience.cdk.exception.CDKException;
 import org.openscience.cdk.fingerprint.BitSetFingerprint;
@@ -41,11 +46,11 @@ import org.openscience.cdk.tools.manipulator.ChemFileManipulator;
 
 public class CFPMiner implements Serializable, AttributeCrossvalidator.AttributeProvider
 {
-	private static final long serialVersionUID = 1L;
+	private static final long serialVersionUID = 2L;
 
 	int numCompounds = 0;
 	List<String> endpoints;
-	HashMap<Integer, LinkedHashSet<Integer>> hashCodeToCompound = new HashMap<Integer, LinkedHashSet<Integer>>();
+	LinkedHashMap<Integer, LinkedHashSet<Integer>> hashCodeToCompound = new LinkedHashMap<Integer, LinkedHashSet<Integer>>();
 	int numUnfoldedConflicts = 0;
 
 	public enum CFPType
@@ -63,16 +68,15 @@ public class CFPMiner implements Serializable, AttributeCrossvalidator.Attribute
 
 	public enum FeatureSelection
 	{
-		filter, fold, none
+		filt, fold, none;
 	}
 
 	CFPType type;
 	FeatureSelection featureSelection;
 	int hashfoldsize;
-	double pValueThreshold;
-	double relMinFreq;
+	int absMinFreq = 2;
 
-	transient HashMap<Integer, LinkedHashSet<Integer>> hashCodeToCompound_unfiltered;
+	transient LinkedHashMap<Integer, LinkedHashSet<Integer>> hashCodeToCompound_unfiltered;
 	transient CircularFingerprinter fp;
 	transient Integer[] hashcodeList;
 	transient HashMap<Integer, LinkedHashSet<Integer>> compoundToHashCode;
@@ -80,6 +84,7 @@ public class CFPMiner implements Serializable, AttributeCrossvalidator.Attribute
 	transient HashMap<Integer, Integer> hashCodeToNumAtoms = new HashMap<Integer, Integer>();
 	transient HashMap<IAtomContainer, LinkedHashSet<Integer>> testMoleculeToHashCode;
 	transient String[] classValues;
+	transient Integer activeIdx;
 
 	public CFPMiner(List<String> endpoints) throws CDKException
 	{
@@ -94,6 +99,19 @@ public class CFPMiner implements Serializable, AttributeCrossvalidator.Attribute
 			Arrays.sort(classValues);
 		}
 		return classValues;
+	}
+
+	public boolean isActive(int classIdx)
+	{
+		if (activeIdx == null)
+		{
+			for (int i = 0; i < getClassValues().length; i++)
+				if (classValues[i].matches("(?i).*active.*"))
+					activeIdx = i;
+			if (activeIdx == null)
+				throw new IllegalStateException();
+		}
+		return activeIdx.intValue() == classIdx;
 	}
 
 	public List<String> getEndpoints()
@@ -114,16 +132,6 @@ public class CFPMiner implements Serializable, AttributeCrossvalidator.Attribute
 	public void setHashfoldsize(int hashfoldsize)
 	{
 		this.hashfoldsize = hashfoldsize;
-	}
-
-	public void setpValueThreshold(double pValueThreshold)
-	{
-		this.pValueThreshold = pValueThreshold;
-	}
-
-	public void setRelMinFreq(double relMinFreq)
-	{
-		this.relMinFreq = relMinFreq;
 	}
 
 	private CFPMiner()
@@ -300,8 +308,7 @@ public class CFPMiner implements Serializable, AttributeCrossvalidator.Attribute
 		f.type = type;
 		f.hashfoldsize = hashfoldsize;
 		f.featureSelection = featureSelection;
-		f.pValueThreshold = pValueThreshold;
-		f.relMinFreq = relMinFreq;
+		f.absMinFreq = absMinFreq;
 		f.numCompounds = numCompounds;
 		for (Integer integer : hashCodeToCompound.keySet())
 			f.hashCodeToCompound.put(integer, (LinkedHashSet<Integer>) hashCodeToCompound.get(integer).clone());
@@ -313,19 +320,52 @@ public class CFPMiner implements Serializable, AttributeCrossvalidator.Attribute
 		return numCompounds;
 	}
 
-	public void applyMinFreq()
+	private void applyMinFreq(Set<Integer> compoundSubset, int minFreq)
 	{
-		applyMinFreq((int) Math.round(relMinFreq * numCompounds));
-	}
-
-	private void applyMinFreq(int minFreq)
-	{
-		//		System.err.println("minFreq " + minFreq);
+		// remove with min-freq 0, would not have been mined on subset
 		List<Integer> hashCodeToDelete = new ArrayList<Integer>();
 		for (Integer h : hashCodeToCompound.keySet())
-			if (hashCodeToCompound.get(h).size() < minFreq)
+			if (SetUtil.intersectSize(hashCodeToCompound.get(h), compoundSubset) == 0)
 				hashCodeToDelete.add(h);
 		removeHashCodes(hashCodeToDelete);
+
+		// remove only if larger than hashfoldize
+		if (hashCodeToCompound.size() <= hashfoldsize)
+			return;
+
+		// collect tuples of hash code and min-freq
+		List<int[]> hf = new ArrayList<int[]>();
+		for (Integer h : hashCodeToCompound.keySet())
+			hf.add(new int[] { h, SetUtil.intersectSize(hashCodeToCompound.get(h), compoundSubset) });
+
+		// sort according to min freq, in decreasing order
+		Collections.sort(hf, new Comparator<int[]>()
+		{
+			@Override
+			public int compare(int[] o1, int[] o2)
+			{
+				// swap params to sort in descending order
+				return Integer.valueOf(o2[1]).compareTo(Integer.valueOf(o1[1]));
+			}
+		});
+
+		// apply min-freq while size > hashfoldsize
+		for (int i = hashfoldsize; i < hf.size(); i++)
+		{
+			if (hf.get(i)[1] < absMinFreq)
+				hashCodeToCompound.remove((int) hf.get(i)[0]);
+		}
+		compoundToHashCode = null;
+
+		//		List<Integer> hashCodeToDelete = new ArrayList<Integer>();
+		//		for (Integer h : hashCodeToCompound.keySet())
+		//			if (hashCodeToCompound.get(h).size() < minFreq)
+		//				hashCodeToDelete.add(h);
+		//		removeHashCodes(hashCodeToDelete);
+
+		//		System.err.println("after min freq:");
+		//		System.err.println(this);
+
 	}
 
 	public void applyAnnovaFilter(List<Double> endpoints, double d)
@@ -364,14 +404,15 @@ public class CFPMiner implements Serializable, AttributeCrossvalidator.Attribute
 		return counts;
 	}
 
-	public void applyChiSquareFilter(List<Integer> compoundSubset)
+	public void applyChiSquareFilter(Set<Integer> compoundSubset)
 	{
 		// chi square is apply to a counts array for each class
 		// e.g. it compares 45 x active 41 x inactive in the compoundSubset
 		// to feature-x with 31 x active, 5 x inactive for all compounds with feature-value(feature-x, compound-y)= active
-
 		if (endpoints.size() != numCompounds)
 			throw new IllegalArgumentException();
+		if (hashCodeToCompound.size() <= hashfoldsize)
+			return;
 		List<String> domain = new ArrayList<String>(new HashSet<String>(endpoints));
 		List<String> subsetEndpoints = new ArrayList<String>();
 		for (Integer c : compoundSubset)
@@ -380,7 +421,8 @@ public class CFPMiner implements Serializable, AttributeCrossvalidator.Attribute
 		//		System.out.println(domain);
 		//		System.out.println(ArrayUtil.toString(all));
 
-		List<Integer> hashCodeToDelete = new ArrayList<Integer>();
+		// create tuples of hash code and p-value
+		List<double[]> hp = new ArrayList<double[]>();
 		for (Integer h : hashCodeToCompound.keySet())
 		{
 			List<String> values = new ArrayList<String>();
@@ -390,21 +432,40 @@ public class CFPMiner implements Serializable, AttributeCrossvalidator.Attribute
 			//			System.out.println(values);
 			//			System.out.println(ArrayUtil.toString(nominalCounts(domain, values)));
 
+			double p = Double.MAX_VALUE;
 			if (values.size() > 0)
 			{
 				long sel[] = nominalCounts(domain, values);
 				//System.err.println(ArrayUtil.toString(all));
 				//				System.err.println(values.size());
 				//System.err.println(ArrayUtil.toString(sel));
-				double p = TestUtils.chiSquareTestDataSetsComparison(sel, all);
+				p = TestUtils.chiSquareTestDataSetsComparison(sel, all);
 				//				System.err.println("p value of hash code " + h + " is " + p);
-				if (p > pValueThreshold)
-					hashCodeToDelete.add(h);
+				//				if (p > pValueThreshold)
+				//					hashCodeToDelete.add(h);
 			}
-			else
-				hashCodeToDelete.add(h);
+			hp.add(new double[] { h, p });
 		}
-		removeHashCodes(hashCodeToDelete);
+
+		//sort tuples according to p-values
+		Collections.sort(hp, new Comparator<double[]>()
+		{
+			@Override
+			public int compare(double[] o1, double[] o2)
+			{
+				return Double.valueOf(o1[1]).compareTo(Double.valueOf(o2[1]));
+			}
+		});
+
+		//sort compounds higher than hash
+		for (int i = hashfoldsize; i < hp.size(); i++)
+		{
+			//			System.err.println("remove hash-code with p-value " + hp.get(i)[1]);
+			hashCodeToCompound.remove((int) hp.get(i)[0]);
+		}
+		if (hashCodeToCompound.size() != hashfoldsize)
+			throw new IllegalStateException();
+		compoundToHashCode = null;
 	}
 
 	private void removeHashCodes(List<Integer> hashCodeToDelete)
@@ -423,17 +484,16 @@ public class CFPMiner implements Serializable, AttributeCrossvalidator.Attribute
 		if (!nice)
 			set.setResultValue(idx, "Num compounds", numCompounds);
 		set.setResultValue(idx, "Fragment type", type);
+		set.setResultValue(idx, "Feature selection", featureSelection);
+		//		if (featureSelection == FeatureSelection.filter)
+		//		{
+		//			set.setResultValue(idx, "Min frequency (relative/absolute)",
+		//					relMinFreq + " / " + (int) Math.round(relMinFreq * numCompounds));
+		//			set.setResultValue(idx, Character.toString((char) 967) + Character.toString((char) 178) + " max p-value",
+		//					pValueThreshold);
+		//		}
 		if (!nice)
-			set.setResultValue(idx, "Feature selection", featureSelection);
-		if (featureSelection == FeatureSelection.filter)
-		{
-			set.setResultValue(idx, "Min frequency (relative/absolute)",
-					relMinFreq + " / " + (int) Math.round(relMinFreq * numCompounds));
-			set.setResultValue(idx, Character.toString((char) 967) + Character.toString((char) 178) + " max p-value",
-					pValueThreshold);
-		}
-		else if (featureSelection == FeatureSelection.fold)
-			set.setResultValue(idx, "fingerprint size", hashfoldsize);
+			set.setResultValue(idx, "Fingerprint size", hashfoldsize);
 		if (!nice)
 		{
 			set.setResultValue(idx, "num unfolded conflicts", numUnfoldedConflicts);
@@ -443,9 +503,17 @@ public class CFPMiner implements Serializable, AttributeCrossvalidator.Attribute
 					n++;
 			set.setResultValue(idx, "compounds w/o hash code", n);
 			List<Integer> cmps = new ArrayList<>();
+			List<String> cmpsStr = new ArrayList<>();
 			for (Integer hashCode : hashCodeToCompound.keySet())
+			{
 				cmps.add(hashCodeToCompound.get(hashCode).size());
+				cmpsStr.add(hashCodeToCompound.get(hashCode).size() + "");
+			}
 			set.setResultValue(idx, "mean compounds per hash-code", DoubleArraySummary.create(cmps));
+			CountedSet<String> setStr = CountedSet.create(cmpsStr);
+			for (Integer f : new int[] { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 })
+				set.setResultValue(idx, "hash-code with freq " + f + ": ", setStr.getCount(f + ""));
+
 			List<Integer> hashCodes = new ArrayList<>();
 			for (int c = 0; c < numCompounds; c++)
 				hashCodes.add(getHashcodesForCompound(c).size());
@@ -545,11 +613,12 @@ public class CFPMiner implements Serializable, AttributeCrossvalidator.Attribute
 		FileUtil.writeStringToFile(path, s.toString());
 	}
 
-	public static void validate(String datasetName, int run, String resultName, String classifiers[],
-			List<?> endpoints, CFPMiner... ecfps) throws Exception
+	public static void validate(String datasetName, int run, String outfile, String classifiers[], List<?> endpoints,
+			CFPMiner... ecfps) throws Exception
 	{
-		AttributeCrossvalidator cv = new AttributeCrossvalidator(datasetName, resultName, ListUtil.cast(String.class,
-				endpoints), ecfps);
+		AttributeCrossvalidator cv = new AttributeCrossvalidator(datasetName, ListUtil.cast(String.class, endpoints),
+				ecfps);
+		cv.setOutfile(outfile);
 		cv.setRun(run);
 		cv.setClassifiers(classifiers);
 		cv.run();
@@ -557,7 +626,7 @@ public class CFPMiner implements Serializable, AttributeCrossvalidator.Attribute
 
 	public void applyFilter()
 	{
-		List<Integer> allCompounds = new ArrayList<Integer>();
+		HashSet<Integer> allCompounds = new HashSet<Integer>();
 		for (int i = 0; i < numCompounds; i++)
 			allCompounds.add(i);
 		applyFilter(allCompounds);
@@ -565,19 +634,19 @@ public class CFPMiner implements Serializable, AttributeCrossvalidator.Attribute
 
 	@SuppressWarnings("unchecked")
 	@Override
-	public void applyFilter(List<Integer> filterSubset)
+	public void applyFilter(Set<Integer> filterSubset)
 	{
-		if (featureSelection != FeatureSelection.filter)
+		if (featureSelection != FeatureSelection.filt)
 			return;
 
 		// undo old filter
 		if (hashCodeToCompound_unfiltered != null)
-			hashCodeToCompound = (HashMap<Integer, LinkedHashSet<Integer>>) hashCodeToCompound_unfiltered.clone();
+			hashCodeToCompound = (LinkedHashMap<Integer, LinkedHashSet<Integer>>) hashCodeToCompound_unfiltered.clone();
 		else
-			hashCodeToCompound_unfiltered = (HashMap<Integer, LinkedHashSet<Integer>>) hashCodeToCompound.clone();
+			hashCodeToCompound_unfiltered = (LinkedHashMap<Integer, LinkedHashSet<Integer>>) hashCodeToCompound.clone();
 
 		// apply new filter
-		applyMinFreq((int) Math.round(relMinFreq * filterSubset.size()));
+		applyMinFreq(filterSubset, absMinFreq);
 		applyChiSquareFilter(filterSubset);
 
 		//		System.out.println("filtered to: " + this);
@@ -589,8 +658,8 @@ public class CFPMiner implements Serializable, AttributeCrossvalidator.Attribute
 		String suffix = "";
 		if (featureSelection == FeatureSelection.fold)
 			suffix = "_" + hashfoldsize;
-		else if (featureSelection == FeatureSelection.filter)
-			suffix = "_p" + pValueThreshold + "_f" + relMinFreq;
+		else if (featureSelection == FeatureSelection.filt)
+			suffix = "_" + hashfoldsize;
 		return type + "_" + featureSelection + suffix;
 	}
 
@@ -707,19 +776,19 @@ public class CFPMiner implements Serializable, AttributeCrossvalidator.Attribute
 		return endpointValues;
 	}
 
-	private static String[] getString(CommandLine cmd, String opt, String defaultValues[])
-	{
-		if (cmd.hasOption(opt))
-			return cmd.getOptionValue(opt).split(",");
-		return defaultValues;
-	}
+	//	private static String[] getString(CommandLine cmd, String opt, String defaultValues[])
+	//	{
+	//		if (cmd.hasOption(opt))
+	//			return cmd.getOptionValue(opt).split(",");
+	//		return defaultValues;
+	//	}
 
-	private static Double[] getDouble(CommandLine cmd, String opt, Double defaultValues[])
-	{
-		if (cmd.hasOption(opt))
-			return ArrayUtil.parseDoubleArray(cmd.getOptionValue(opt).split(","));
-		return defaultValues;
-	}
+	//	private static Double[] getDouble(CommandLine cmd, String opt, Double defaultValues[])
+	//	{
+	//		if (cmd.hasOption(opt))
+	//			return ArrayUtil.parseDoubleArray(cmd.getOptionValue(opt).split(","));
+	//		return defaultValues;
+	//	}
 
 	//	private static boolean[] getBooleans(CommandLine cmd, String opt, boolean defaultValues[])
 	//	{
@@ -750,11 +819,9 @@ public class CFPMiner implements Serializable, AttributeCrossvalidator.Attribute
 		options.addOption("r", "run", true, "cv run");
 		options.addOption("t", "type", true, "ecfp|fcfp");
 
-		options.addOption("c", "classifier", true, "RandomForest|SMO");
-		options.addOption("f", "featureSelection", true, "fold|filter|none");
+		options.addOption("c", "classifier", true, "RaF|SMO");
+		options.addOption("f", "featureSelection", true, "fold|filt|none");
 		options.addOption("s", "hashfoldsize", true, "default:1024, requires folded=true");
-		options.addOption("p", "pValueThreshold", true, "default:0.05, requires folded=false");
-		options.addOption("m", "relMinFreq", true, "default:0.02, requires folded=false");
 
 		if (args.length == 0)
 		{
@@ -763,10 +830,13 @@ public class CFPMiner implements Serializable, AttributeCrossvalidator.Attribute
 		}
 		if (args.length > 0 && args[0].equals("debug"))
 		{
-			for (String name : names)
-			{
-				main(("--datasetName " + name + " --classifier RandomForest --featureSelection filter").split(" "));
-			}
+			//			for (String name : names)
+			//			{
+			//				main(("--datasetName " + name + " --classifier RandomForest --featureSelection filter").split(" "));
+			//			}
+
+			args = "--datasetName CPDBAS_Dog_Primates --run 1 --classifier RaF --type ecfp --featureSelection filt --hashfoldsize 1024"
+					.split(" ");
 
 			//			args = "--datasetName DUD_vegfr2 --classifier RandomForest --folded false --pValueThreshold 0.05,0.1"
 			//					.split(" ");
@@ -785,17 +855,15 @@ public class CFPMiner implements Serializable, AttributeCrossvalidator.Attribute
 		CFPType type = CFPType.ecfp;
 		if (cmd.hasOption("t"))
 			type = CFPType.valueOf(cmd.getOptionValue("t"));
+		FeatureSelection featureSelection = FeatureSelection.filt;
+		if (cmd.hasOption("f"))
+			featureSelection = FeatureSelection.valueOf(cmd.getOptionValue("f"));
 		int hashfoldsize = 1024;
 		if (cmd.hasOption("s"))
 			hashfoldsize = Integer.parseInt(cmd.getOptionValue("s"));
-
-		String classifiers[] = getString(cmd, "c", new String[] { "RandomForest", "SMO" });
-		String featureSelections[] = getString(cmd, "f", new String[] { FeatureSelection.filter.toString() });
-		Double pValueThresholds[] = getDouble(cmd, "p", new Double[] { 0.05 });
-		Double relMinFreqs[] = getDouble(cmd, "m", new Double[] { 0.02 });
-
-		if (pValueThresholds.length != relMinFreqs.length)
-			throw new IllegalArgumentException("values for pValueThresholds and relMinFreqs are not pairwise");
+		String classifier = "RaF";
+		if (cmd.hasOption("c"))
+			classifier = cmd.getOptionValue("c");
 
 		System.out.println(datasetName);
 
@@ -810,71 +878,18 @@ public class CFPMiner implements Serializable, AttributeCrossvalidator.Attribute
 		//			smiles.add(sg.create(mol));
 		//		System.out.println(ListUtil.toString(endpoint));
 
-		List<CFPMiner> cfpss = new ArrayList<CFPMiner>();
+		CFPMiner cfps = new CFPMiner(ListUtil.cast(String.class, endpointValues));
+		cfps.type = type;
+		cfps.featureSelection = featureSelection;
+		cfps.hashfoldsize = hashfoldsize;
+		cfps.update(ArrayUtil.toArray(list));
+		System.out.println(cfps);
+		//			cfps.applyFilter();
+		//			System.out.println(cfps);
+		//System.out.println(cfps.pairWiseInfo(list));
 
-		for (String featureSelectionStr : featureSelections)
-		{
-			FeatureSelection featureSelection = FeatureSelection.valueOf(featureSelectionStr);
-
-			int hashfoldsizeTMP = 0;
-			Double pValueThresholdsTMP[] = new Double[] { 0.0 };
-			Double relMinFreqsTMP[] = new Double[] { 0.0 };
-			if (featureSelection == FeatureSelection.fold)
-				hashfoldsizeTMP = hashfoldsize;
-			else if (featureSelection == FeatureSelection.filter)
-			{
-				pValueThresholdsTMP = pValueThresholds;
-				relMinFreqsTMP = relMinFreqs;
-			}
-
-			for (int filterParamIdx = 0; filterParamIdx < pValueThresholdsTMP.length; filterParamIdx++)
-			{
-				double pValueThreshold = pValueThresholdsTMP[filterParamIdx];
-				double relMinFreq = relMinFreqsTMP[filterParamIdx];
-
-				CFPMiner cfps = new CFPMiner(ListUtil.cast(String.class, endpointValues));
-				cfps.type = type;
-				cfps.featureSelection = featureSelection;
-				cfps.hashfoldsize = hashfoldsizeTMP;
-				cfps.pValueThreshold = pValueThreshold;
-				cfps.relMinFreq = relMinFreq;
-				cfps.update(ArrayUtil.toArray(list));
-				System.out.println(cfps);
-				//System.out.println(cfps.pairWiseInfo(list));
-				cfpss.add(cfps);
-
-				//							cfps.applyFilter();
-				//							System.out.println(cfps);
-				//							CFPtoArff.write("/tmp/dud_vegfr2.arff", cfps, endpointValues,
-				//									endpointNames.get(getDatasetIdx(datasetName)));
-				//							System.exit(1);
-			}
-		}
-		//		//				ECFPs unfolded = new ECFPs(ListUtil.cast(String.class, endpointValues));
-		//		//				unfolded.folded = false;
-		//		//				unfolded.update(ArrayUtil.toArray(list));
-		//		//				System.out.println("unfolded");
-		//		//				System.out.println(unfolded);
-		//
-		//		//				Random r = new Random();
-		//		//				while (true)
-		//		//				{
-		//		//					int c = r.nextInt(unfolded.numCompounds);
-		//		//					int h = r.nextInt(unfolded.getHashcodesForCompound(c).size());
-		//		//					unfolded.drawFP(list.get(c), unfolded.getHashcodesForCompound(c).get(h));
-		//		//				}
-		//
-		//		//				ECFPs filtered = unfolded.clone();
-		//		//				filtered.applyMinFreq(0.02);
-		//		//				if (classification)
-		//		//					filtered.applyChiSquareFilter(0.05);
-		//		//				else
-		//		//					filtered.applyAnnovaFilter(0.05);
-		//		//				System.out.println("unfolded & filtered");
-		//		//				System.out.println(filtered);
-
-		//		validate(datasetName, run, datasetName + "_r" + run + "_" + type.toString() + "_" + hashfoldsize, classifiers,
-		//				endpointValues, ArrayUtil.toArray(cfpss));
+		String outfile = "results/" + "r" + run + "_" + type + "_" + featureSelection + "_" + hashfoldsize + "_"
+				+ classifier + "_" + datasetName + ".arff";
+		validate(datasetName, run, outfile, new String[] { classifier }, endpointValues, new CFPMiner[] { cfps });
 	}
-
 }

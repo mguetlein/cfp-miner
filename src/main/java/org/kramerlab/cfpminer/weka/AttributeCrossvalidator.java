@@ -12,6 +12,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Random;
+import java.util.Set;
 import java.util.Vector;
 
 import javax.swing.DefaultListModel;
@@ -51,7 +52,7 @@ public class AttributeCrossvalidator
 
 		public String getAttributeValue(int i, int a);
 
-		public void applyFilter(List<Integer> filterSubset);
+		public void applyFilter(Set<Integer> filterSubset);
 	}
 
 	private static int maxBuildCount = -1;
@@ -144,7 +145,7 @@ public class AttributeCrossvalidator
 		public void buildClassifier(Instances oldData) throws Exception
 		{
 			// apply filter based on list of indices in the training dataset
-			List<Integer> filterSubset = new ArrayList<Integer>();
+			HashSet<Integer> filterSubset = new HashSet<Integer>();
 			for (Instance oldInstance : oldData)
 				filterSubset.add((int) oldInstance.value(0));
 			attributeProvider.applyFilter(filterSubset);
@@ -170,22 +171,25 @@ public class AttributeCrossvalidator
 	}
 
 	String datasetName;
-	String resultName;
+	String outfile;
 	List<String> endpointValues;
 	Classifier classifiers[] = new Classifier[] { new RandomForest(), new SMO() };
 	AttributeProvider[] provider;
 	int run = 1;
 
-	public AttributeCrossvalidator(String datasetName, String resultName, List<String> endpointValues,
-			AttributeProvider... provider)
+	public AttributeCrossvalidator(String datasetName, List<String> endpointValues, AttributeProvider... provider)
 	{
 		this.datasetName = datasetName;
-		this.resultName = resultName;
 		this.endpointValues = endpointValues;
 		this.provider = provider;
 
 		currentDatasetName.put(Thread.currentThread(), datasetName);
 		currentBuildCount.put(Thread.currentThread(), 0);
+	}
+
+	public void setOutfile(String outfile)
+	{
+		this.outfile = outfile;
 	}
 
 	public void setRun(int run)
@@ -200,7 +204,7 @@ public class AttributeCrossvalidator
 		int idx = 0;
 		for (String cl : c)
 		{
-			if (cl.equals("RandomForest"))
+			if (cl.equals("RaF"))
 				this.classifiers[idx++] = new RandomForest();
 			else if (cl.equals("SMO"))
 				this.classifiers[idx++] = new SMO();
@@ -299,7 +303,11 @@ public class AttributeCrossvalidator
 		exp.setDatasets(model);
 
 		InstancesResultListener irl = new InstancesResultListener();
-		File resultsFile = new File("results/" + resultName + ".arff");
+		File resultsFile;
+		if (outfile == null)
+			resultsFile = File.createTempFile("results", "arff");
+		else
+			resultsFile = new File(outfile);
 		irl.setOutputFile(resultsFile);
 		exp.setResultListener(irl);
 
@@ -317,7 +325,7 @@ public class AttributeCrossvalidator
 	public static void main(String[] args) throws Exception
 	{
 		final Random r = new Random();
-		new AttributeCrossvalidator("dummy", "dummy", ArrayUtil.toList("a,a,a,a,a,b,b,b,b,b".split(",")),
+		new AttributeCrossvalidator("dummy", ArrayUtil.toList("a,a,a,a,a,b,b,b,b,b".split(",")),
 				new AttributeProvider()
 				{
 					@Override
@@ -351,7 +359,7 @@ public class AttributeCrossvalidator
 					}
 
 					@Override
-					public void applyFilter(List<Integer> filterSubset)
+					public void applyFilter(Set<Integer> filterSubset)
 					{
 					}
 				});
