@@ -418,6 +418,11 @@ public class CDKUtil
 		return smilesToMol.get(smiles);
 	}
 
+	public static void setMolForSmiles(String smi, IAtomContainer a)
+	{
+		smilesToMol.put(smi, a);
+	}
+
 	private static HashMap<String, IAtomContainer> inchiToMol = new HashMap<String, IAtomContainer>();
 
 	public static IAtomContainer parseInchi(String inchi) throws IOException, CDKException

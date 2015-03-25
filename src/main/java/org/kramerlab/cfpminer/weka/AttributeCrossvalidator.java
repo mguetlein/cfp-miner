@@ -144,6 +144,7 @@ public class AttributeCrossvalidator
 		@Override
 		public void buildClassifier(Instances oldData) throws Exception
 		{
+			//			System.out.println(oldData);
 			// apply filter based on list of indices in the training dataset
 			HashSet<Integer> filterSubset = new HashSet<Integer>();
 			for (Instance oldInstance : oldData)
@@ -232,6 +233,7 @@ public class AttributeCrossvalidator
 				inst.setValue(1, e);
 				data.add(inst);
 			}
+			//			System.out.println(data);
 			ArffSaver saver = new ArffSaver();
 			saver.setInstances(data);
 			saver.setFile(new File(instancesFile));

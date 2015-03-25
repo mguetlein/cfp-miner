@@ -74,3 +74,5 @@ CPDBAS_Mouse
 CPDBAS_Mutagenicity
 CPDBAS_Dog_Primates
 CPDBAS_Hamster
+NCTRER
+AMES
