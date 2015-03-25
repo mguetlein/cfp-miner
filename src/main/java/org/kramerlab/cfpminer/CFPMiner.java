@@ -639,32 +639,37 @@ public class CFPMiner implements Serializable, AttributeCrossvalidator.Attribute
 
 			if (featureSelection == FeatureSelection.fold)
 			{
-				List<Integer> counts = new ArrayList<Integer>();
-				List<String> countsStr = new ArrayList<String>();
-				int numCollisions = 0;
-				int numBits = 0;
-				for (int i = 0; i < hashfoldsize; i++)
-					if (collisionMap.containsKey(i))
-					{
-						if (collisionMap.get(i).size() > 1)
-							numCollisions++;
-						numBits++;
-						counts.add(collisionMap.get(i).size());
-						countsStr.add(collisionMap.get(i).size() + "");
-					}
-					else
-						countsStr.add("0");
-
-				set.setResultValue(idx, "num bits with collisions", numCollisions + "/" + numBits);
-				set.setResultValue(idx, "collision ratio", numCollisions / (double) numBits);
-				DoubleArraySummary occu = DoubleArraySummary.create(counts);
-				set.setResultValue(idx, "collision occupancy - mean", occu);
-				CountedSet<String> occuStr = CountedSet.create(countsStr);
-				for (Integer f : new int[] { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 })
-					set.setResultValue(idx, "collision occupancy - no " + f, occuStr.getCount(f + ""));
+				estimateCollisions(set, idx, "");
 			}
 		}
 		return set;
+	}
+
+	private void estimateCollisions(ResultSet set, int idx, String prefix)
+	{
+		List<Integer> counts = new ArrayList<Integer>();
+		List<String> countsStr = new ArrayList<String>();
+		int numCollisions = 0;
+		int numBits = 0;
+		for (int i = 0; i < hashfoldsize; i++)
+			if (collisionMap.containsKey(i))
+			{
+				if (collisionMap.get(i).size() > 1)
+					numCollisions++;
+				numBits++;
+				counts.add(collisionMap.get(i).size());
+				countsStr.add(collisionMap.get(i).size() + "");
+			}
+			else
+				countsStr.add("0");
+
+		set.setResultValue(idx, prefix + "collisions", numCollisions + "/" + numBits);
+		//		set.setResultValue(idx, prefix + "collision ratio", numCollisions / (double) numBits);
+		DoubleArraySummary occu = DoubleArraySummary.create(counts);
+		set.setResultValue(idx, prefix + "fragments per bit", occu);
+		//		CountedSet<String> occuStr = CountedSet.create(countsStr);
+		//		for (Integer f : new int[] { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 })
+		//			set.setResultValue(idx, prefix + "bits with #" + f + " fragments", occuStr.getCount(f + ""));
 	}
 
 	public String toString()
@@ -982,123 +987,50 @@ public class CFPMiner implements Serializable, AttributeCrossvalidator.Attribute
 			return "0";
 	}
 
-	//	private static List<String> files = new ArrayList<String>();
-	//	private static List<String> endpointNames = new ArrayList<String>();
-	//	private static List<String> names = new ArrayList<String>();
-	//
-	//	static
-	//	{
-	//		try
-	//		{
-	//			for (File s : new File("data").listFiles())
-	//			{
-	//				if (s.getAbsolutePath().endsWith(".csv"))
-	//				{
-	//					files.add(s.getAbsolutePath());
-	//					endpointNames.add("endpoint");
-	//					names.add(FileUtil.getFilename(s.getName(), false));
-	//				}
-	//			}
-	//			if (new File("data/CPDBAS_v5d_1547_20Nov2008.sdf").exists())
-	//			{
-	//				for (String e : new String[] { "MultiCellCall", "SingleCellCall", "Rat", "Mouse", "Hamster",
-	//						"Mutagenicity", "Dog_Primates" })
-	//				{
-	//					files.add(new File("data/CPDBAS_v5d_1547_20Nov2008.sdf").getAbsolutePath());
-	//					endpointNames.add("ActivityOutcome_CPDBAS_" + e);
-	//					names.add("CPDBAS_" + e);
-	//				}
-	//			}
-	//		}
-	//		catch (Exception e)
-	//		{
-	//
-	//		}
-	//	}
+	public static void printCollisions() throws Exception
+	{
+		CFPDataLoader l = new CFPDataLoader("data");
+		ResultSet res = new ResultSet();
+		for (String name : l.allDatasets().keySet())
+		{
+			System.out.println(name);
+			int idx = res.addResult();
+			res.setResultValue(idx, "name", name);
 
-	//	private static int getDatasetIdx(String datasetName)
-	//	{
-	//		for (int i = 0; i < names.size(); i++)
-	//			if (names.get(i).equals(datasetName))
-	//				return i;
-	//		throw new IllegalArgumentException(datasetName + " not found in " + ListUtil.toString(names));
-	//	}
+			CFPMiner miner = new CFPMiner(l.getDataset(name).endpoints);
+			miner.type = CFPType.ecfp6;
+			miner.featureSelection = FeatureSelection.filt;
+			miner.hashfoldsize = 1024;
+			miner.mine(l.getDataset(name).smiles);
 
-	//	private static List<IAtomContainer> getDatasetMols(String datasetName) throws Exception
-	//	{
-	//		String file = files.get(getDatasetIdx(datasetName));
-	//		String endpoint = endpointNames.get(getDatasetIdx(datasetName));
-	//		System.out.println(file + " " + endpoint);
-	//		List<IAtomContainer> list;
-	//		if (file.endsWith("csv"))
-	//			list = CDKUtil.readFromCSV(new File(file));
-	//		else
-	//		{
-	//			ISimpleChemObjectReader reader = new ReaderFactory().createReader(new InputStreamReader(
-	//					new FileInputStream(file)));
-	//			IChemFile content = (IChemFile) reader.read((IChemObject) new ChemFile());
-	//			list = new ArrayList<IAtomContainer>();
-	//			for (IAtomContainer a : ChemFileManipulator.getAllAtomContainers(content))
-	//				if (a.getProperty(endpoint) != null && !a.getProperty(endpoint).toString().equals("unspecified")
-	//						&& !a.getProperty(endpoint).toString().equals("blank"))
-	//					list.add(a);
-	//			reader.close();
-	//		}
-	//		System.out.println("total num compounds " + list.size());
-	//		//				for (IAtomContainer mol : list)
-	//		//				{
-	//		//					System.out.println(mol);
-	//		//				}
-	//		return list;
-	//	}
+			res.setResultValue(idx, "num compounds", miner.getNumCompounds() + "");
+			res.setResultValue(idx, "num fragments", miner.getNumAttributes() + "");
 
-	//	private static List<String> getEndpointValues(String datasetName, List<IAtomContainer> list) throws Exception
-	//	{
-	//		//		boolean classification = true;
-	//		String endpoint = endpointNames.get(getDatasetIdx(datasetName));
-	//		List<String> endpointValues = new ArrayList<String>();
-	//		for (IAtomContainer mol : list)
-	//			//		{
-	//			//			if (classification)
-	//			endpointValues.add((String) mol.getProperty(endpoint));
-	//		//			else
-	//		//				endpointValues.add(Double.parseDouble((String) mol.getProperty(endpoint)));
-	//		//		}
-	//		System.out.println(CountedSet.create(endpointValues));
-	//		return endpointValues;
-	//	}
+			for (int size : new int[] { 1024, 2048, 4096, 8192 })
+			{
+				miner = new CFPMiner(l.getDataset(name).endpoints);
+				miner.type = CFPType.ecfp6;
+				miner.featureSelection = FeatureSelection.fold;
+				miner.hashfoldsize = size;
+				miner.mine(l.getDataset(name).smiles);
+				miner.estimateCollisions(res, idx, size + " ");
+			}
 
-	//	private static String[] getString(CommandLine cmd, String opt, String defaultValues[])
-	//	{
-	//		if (cmd.hasOption(opt))
-	//			return cmd.getOptionValue(opt).split(",");
-	//		return defaultValues;
-	//	}
+			if (res.getNumResults() == l.allDatasets().size() || res.getNumResults() % 5 == 0)
+			{
+				res.sortResults("name");
+				System.out.println("\n");
+				System.out.println(res.toNiceString());
+			}
+		}
 
-	//	private static Double[] getDouble(CommandLine cmd, String opt, Double defaultValues[])
-	//	{
-	//		if (cmd.hasOption(opt))
-	//			return ArrayUtil.parseDoubleArray(cmd.getOptionValue(opt).split(","));
-	//		return defaultValues;
-	//	}
-
-	//	private static boolean[] getBooleans(CommandLine cmd, String opt, boolean defaultValues[])
-	//	{
-	//		if (cmd.hasOption(opt))
-	//			return ArrayUtil.parseBoolean(cmd.getOptionValue(opt).split(","));
-	//		return defaultValues;
-	//	}
-
-	//	private static Integer[] getIntegers(CommandLine cmd, String opt, Integer defaultValues[])
-	//	{
-	//		if (cmd.hasOption(opt))
-	//			return ArrayUtil.parseIntegers(cmd.getOptionValue(opt).split(","));
-	//		return defaultValues;
-	//	}
+		System.exit(1);
+	}
 
 	public static void main(String[] args) throws Exception
 	{
 		Locale.setDefault(Locale.US);
+		printCollisions();
 		//		//String smiles = "CCCCCCCCCCCCCCCCCCCCCCOC(=O)C1(CCC=CC1N(C)C)C2=CC=CC=C2";
 		//		String smiles = "Cn1cnc2c1c(=O)n(c(=O)n2C)C";
 		//		drawFP(null, new SmilesParser(SilentChemObjectBuilder.getInstance()).parseSmiles(smiles), new int[] { 0, 1, 2,

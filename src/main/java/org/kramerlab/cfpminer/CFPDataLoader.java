@@ -4,7 +4,6 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 
@@ -42,11 +41,11 @@ public class CFPDataLoader
 		sdfEndpoints.put("AMES", "Ames test categorisation");
 	}
 
-	public Collection<Dataset> allDatasets()
+	public HashMap<String, Dataset> allDatasets()
 	{
 		for (String endpoint : FileUtil.readStringFromFile("endpoints.txt").split("\n"))
 			getDataset(endpoint);
-		return datasets.values();
+		return datasets;
 	}
 
 	public CFPDataLoader(String dataFolder)
