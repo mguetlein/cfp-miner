@@ -8,25 +8,42 @@ import org.mg.javalib.weka.ArffWritable;
 import org.mg.javalib.weka.ArffWriter;
 import org.openscience.cdk.interfaces.IAtomContainer;
 
+import weka.core.Instances;
+
 public class CFPtoArff
 {
+	public static Instances getTrainingDataset(CFPMiner miner, String endpointName) throws Exception
+	{
+		return ArffWriter.toInstances(getArffWritable(miner, endpointName, null));
+	}
+
 	public static void writeTrainingDataset(String arffFile, CFPMiner miner, String endpointName) throws Exception
 	{
-		write(arffFile, miner, endpointName, null);
+		ArffWriter.writeToArffFile(new File(arffFile), getArffWritable(miner, endpointName, null));
 	}
 
 	public static void writeTestDataset(String arffFile, CFPMiner miner, String endpointName, IAtomContainer testMol)
 			throws Exception
 	{
-		write(arffFile, miner, endpointName, testMol);
+		ArffWriter.writeToArffFile(new File(arffFile), getArffWritable(miner, endpointName, testMol));
 	}
 
-	private static void write(String arffFile, final CFPMiner miner, final String endpointName,
+	public static Instances getTestDataset(CFPMiner miner, String endpointName, IAtomContainer testMol)
+			throws Exception
+	{
+		return ArffWriter.toInstances(getArffWritable(miner, endpointName, testMol));
+	}
+
+	private static ArffWritable getArffWritable(final CFPMiner miner, final String endpointName,
 			final IAtomContainer testMol) throws Exception
 	{
-		System.out.println("write " + arffFile);
-		ArffWriter.writeToArffFile(new File(arffFile), new ArffWritable()
+		return new ArffWritable()
 		{
+			@Override
+			public String getRelationName()
+			{
+				return endpointName + (testMol != null ? "_test" : "");
+			}
 
 			@Override
 			public boolean isSparse()
@@ -106,6 +123,6 @@ public class CFPtoArff
 			{
 				return null;
 			}
-		});
+		};
 	}
 }
