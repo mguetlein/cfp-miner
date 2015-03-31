@@ -205,6 +205,8 @@ public class CFPMiner implements Serializable, AttributeCrossvalidator.Attribute
 		return atoms;
 	}
 
+	private static transient HashMap<Integer, Set<Integer>> atomsMultCache = new HashMap<>();
+
 	/**
 	 * fragment may occur multiple times
 	 * 
@@ -217,14 +219,20 @@ public class CFPMiner implements Serializable, AttributeCrossvalidator.Attribute
 	{
 		if (featureSelection == FeatureSelection.fold)
 			throw new IllegalArgumentException();
-		Set<Integer> atoms = new HashSet<>();
-		initCircularFingerprinter();
-		fp.getBitFingerprint(mol);
-		for (int i = 0; i < fp.getFPCount(); i++)
-			if (fp.getFP(i).hashCode == fingerprint)
-				for (int a : fp.getFP(i).atoms)
-					atoms.add(a);
-		return atoms;
+
+		Integer key = HashUtil.hashCode(type, mol, fingerprint);
+		if (!atomsMultCache.containsKey(key))
+		{
+			Set<Integer> atoms = new HashSet<>();
+			initCircularFingerprinter();
+			fp.getBitFingerprint(mol);
+			for (int i = 0; i < fp.getFPCount(); i++)
+				if (fp.getFP(i).hashCode == fingerprint)
+					for (int a : fp.getFP(i).atoms)
+						atoms.add(a);
+			atomsMultCache.put(key, atoms);
+		}
+		return atomsMultCache.get(key);
 	}
 
 	public void mine(List<String> smiles) throws Exception
@@ -986,22 +994,22 @@ public class CFPMiner implements Serializable, AttributeCrossvalidator.Attribute
 	}
 
 	@Override
-	public String getAttributeValue(int i, int a)
+	public double getAttributeValue(int i, int a)
 	{
 		if (a < hashCodeToCompound.size())
 		{
 			if (hashCodeToCompound.get(getHashcodeViaIdx(a)) == null)
 				throw new IllegalStateException("no compounds for hashcode, should have been removed! " + a + " "
 						+ getHashcodeViaIdx(a) + " " + hashCodeToCompound.get(getHashcodeViaIdx(a)));
-			if (hashCodeToCompound.get(getHashcodeViaIdx(a)).contains(Integer.valueOf(i)))
-				return "1";
+			if (hashCodeToCompound.get(getHashcodeViaIdx(a)).contains(i))
+				return 1.0;
 			else
-				return "0";
+				return 0.0;
 		}
-		if (pairs.get(a - hashCodeToCompound.size()).commonAdjacentCompounds.contains(Integer.valueOf(i)))
-			return "1";
+		if (pairs.get(a - hashCodeToCompound.size()).commonAdjacentCompounds.contains(i))
+			return 1.0;
 		else
-			return "0";
+			return 0.0;
 	}
 
 	public static void printCollisions() throws Exception
@@ -1054,7 +1062,7 @@ public class CFPMiner implements Serializable, AttributeCrossvalidator.Attribute
 	public static void main(String[] args) throws Exception
 	{
 		Locale.setDefault(Locale.US);
-		printCollisions();
+		//		printCollisions();
 
 		Options options = new Options();
 		options.addOption("d", "datasetName", true, "");
@@ -1077,7 +1085,7 @@ public class CFPMiner implements Serializable, AttributeCrossvalidator.Attribute
 			//				main(("--datasetName " + name + " --classifier RandomForest --featureSelection filter").split(" "));
 			//			}
 
-			args = "--datasetName CPDBAS_Rat --run 2 --classifier RaF --type fcfp4 --featureSelection filt --hashfoldsize 1024"
+			args = "--datasetName ChEMBL_10188 --run 2 --classifier RaF --type ecfp6 --featureSelection filt --hashfoldsize 1024"
 					.split(" ");
 
 			//ChEMBL_259

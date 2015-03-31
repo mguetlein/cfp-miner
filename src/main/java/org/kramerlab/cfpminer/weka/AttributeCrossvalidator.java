@@ -50,7 +50,7 @@ public class AttributeCrossvalidator
 
 		public List<String> getAttributeDomain(int a);
 
-		public String getAttributeValue(int i, int a);
+		public double getAttributeValue(int i, int a);
 
 		public void applyFilter(Set<Integer> filterSubset);
 	}
@@ -109,11 +109,12 @@ public class AttributeCrossvalidator
 		{
 			int idx = (int) oldInstance.value(0);
 			double endpoint = oldInstance.value(1);
-			DenseInstance inst = new DenseInstance(newData.numAttributes());
-			inst.setDataset(newData);
+			double vals[] = new double[newData.numAttributes()];
 			for (int i = 0; i < attributeProvider.getNumAttributes(); i++)
-				inst.setValue(i, attributeProvider.getAttributeValue(idx, i));
-			inst.setValue(newData.numAttributes() - 1, endpoint);
+				vals[i] = attributeProvider.getAttributeValue(idx, i);
+			vals[newData.numAttributes() - 1] = endpoint;
+			DenseInstance inst = new DenseInstance(newData.numAttributes(), vals);
+			inst.setDataset(newData);
 			newData.add(inst);
 		}
 
@@ -355,9 +356,9 @@ public class AttributeCrossvalidator
 					}
 
 					@Override
-					public String getAttributeValue(int i, int a)
+					public double getAttributeValue(int i, int a)
 					{
-						return r.nextBoolean() ? "ene" : "mene";
+						return r.nextBoolean() ? 0.0 : 1.0;
 					}
 
 					@Override
