@@ -119,7 +119,7 @@ public class CFPMiner implements Serializable, AttributeCrossvalidator.Attribute
 		if (activeIdx == null)
 		{
 			for (int i = 0; i < getClassValues().length; i++)
-				if (classValues[i].equals("active"))
+				if (classValues[i].equals("active") || classValues[i].equals("mutagen"))
 					activeIdx = i;
 			if (activeIdx == null)
 				throw new IllegalStateException("what is active? " + ArrayUtil.toString(getClassValues()));
