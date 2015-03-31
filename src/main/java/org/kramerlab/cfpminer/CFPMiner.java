@@ -50,7 +50,7 @@ public class CFPMiner implements Serializable, AttributeCrossvalidator.Attribute
 
 	public enum CFPType
 	{
-		ecfp6, fcfp6;
+		ecfp6, ecfp4, ecfp2, ecfp0, fcfp6, fcfp4, fcfp2, fcfp0;
 
 		int getClassType()
 		{
@@ -58,6 +58,18 @@ public class CFPMiner implements Serializable, AttributeCrossvalidator.Attribute
 				return CircularFingerprinter.CLASS_ECFP6;
 			else if (this == fcfp6)
 				return CircularFingerprinter.CLASS_FCFP6;
+			else if (this == ecfp4)
+				return CircularFingerprinter.CLASS_ECFP4;
+			else if (this == fcfp4)
+				return CircularFingerprinter.CLASS_FCFP4;
+			else if (this == ecfp2)
+				return CircularFingerprinter.CLASS_ECFP2;
+			else if (this == fcfp2)
+				return CircularFingerprinter.CLASS_FCFP2;
+			else if (this == ecfp0)
+				return CircularFingerprinter.CLASS_ECFP0;
+			else if (this == fcfp0)
+				return CircularFingerprinter.CLASS_FCFP0;
 			else
 				throw new IllegalStateException("wtf");
 		}
@@ -118,6 +130,11 @@ public class CFPMiner implements Serializable, AttributeCrossvalidator.Attribute
 	public List<String> getEndpoints()
 	{
 		return endpoints;
+	}
+
+	public List<String> getTrainingDataSmiles()
+	{
+		return trainingDataSmiles;
 	}
 
 	public void setType(CFPType type)
@@ -989,16 +1006,21 @@ public class CFPMiner implements Serializable, AttributeCrossvalidator.Attribute
 
 	public static void printCollisions() throws Exception
 	{
+		CFPType type = CFPType.ecfp6;
 		CFPDataLoader l = new CFPDataLoader("data");
 		ResultSet res = new ResultSet();
-		for (String name : l.allDatasets().keySet())
+		String datasets[] = l.allDatasets();
+		for (String name : datasets)
 		{
+			if (!name.startsWith("CPDBAS") && !name.startsWith("AMES") && !name.startsWith("NCTRER"))
+				continue;
+
 			System.out.println(name);
 			int idx = res.addResult();
 			res.setResultValue(idx, "name", name);
 
 			CFPMiner miner = new CFPMiner(l.getDataset(name).endpoints);
-			miner.type = CFPType.ecfp6;
+			miner.type = type;
 			miner.featureSelection = FeatureSelection.filt;
 			miner.hashfoldsize = 1024;
 			miner.mine(l.getDataset(name).smiles);
@@ -1009,21 +1031,23 @@ public class CFPMiner implements Serializable, AttributeCrossvalidator.Attribute
 			for (int size : new int[] { 1024, 2048, 4096, 8192 })
 			{
 				miner = new CFPMiner(l.getDataset(name).endpoints);
-				miner.type = CFPType.ecfp6;
+				miner.type = type;
 				miner.featureSelection = FeatureSelection.fold;
 				miner.hashfoldsize = size;
 				miner.mine(l.getDataset(name).smiles);
 				miner.estimateCollisions(res, idx, size + " ");
 			}
 
-			if (res.getNumResults() == l.allDatasets().size() || res.getNumResults() % 5 == 0)
+			if (res.getNumResults() % 5 == 0)
 			{
 				res.sortResults("name");
 				System.out.println("\n");
 				System.out.println(res.toNiceString());
 			}
 		}
-
+		res.sortResults("name");
+		System.out.println("\n");
+		System.out.println(res.toNiceString());
 		System.exit(1);
 	}
 
@@ -1031,12 +1055,6 @@ public class CFPMiner implements Serializable, AttributeCrossvalidator.Attribute
 	{
 		Locale.setDefault(Locale.US);
 		printCollisions();
-		//		//String smiles = "CCCCCCCCCCCCCCCCCCCCCCOC(=O)C1(CCC=CC1N(C)C)C2=CC=CC=C2";
-		//		String smiles = "Cn1cnc2c1c(=O)n(c(=O)n2C)C";
-		//		drawFP(null, new SmilesParser(SilentChemObjectBuilder.getInstance()).parseSmiles(smiles), new int[] { 0, 1, 2,
-		//				3, 4, 5, 6, 7 });
-
-		//		System.exit(1);
 
 		Options options = new Options();
 		options.addOption("d", "datasetName", true, "");
@@ -1059,7 +1077,7 @@ public class CFPMiner implements Serializable, AttributeCrossvalidator.Attribute
 			//				main(("--datasetName " + name + " --classifier RandomForest --featureSelection filter").split(" "));
 			//			}
 
-			args = "--datasetName ChEMBL_10188 --run 1 --classifier RaF --type ecfp6 --featureSelection filt --hashfoldsize 1024"
+			args = "--datasetName CPDBAS_Rat --run 2 --classifier RaF --type fcfp4 --featureSelection filt --hashfoldsize 1024"
 					.split(" ");
 
 			//ChEMBL_259
@@ -1090,8 +1108,7 @@ public class CFPMiner implements Serializable, AttributeCrossvalidator.Attribute
 		if (cmd.hasOption("c"))
 			classifier = cmd.getOptionValue("c");
 
-		CFPDataLoader.Dataset dataset = new CFPDataLoader("data").getDataset(datasetName);
-
+		CFPDataLoader.Dataset dataset = new CFPDataLoader("data").getDataset(datasetName, run);
 		List<String> list = dataset.smiles;
 		List<String> endpointValues = dataset.endpoints;
 		ListUtil.scramble(new Random(1), list, endpointValues);
@@ -1118,4 +1135,5 @@ public class CFPMiner implements Serializable, AttributeCrossvalidator.Attribute
 			validate(datasetName, run, outfile, new String[] { classifier }, endpointValues, new CFPMiner[] { cfps });
 		}
 	}
+
 }

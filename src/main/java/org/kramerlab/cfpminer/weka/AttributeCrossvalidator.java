@@ -75,7 +75,7 @@ public class AttributeCrossvalidator
 		Classifier classifier;
 		AttributeProvider attributeProvider;
 
-		private final static long serialVersionUID = 1L;
+		private final static long serialVersionUID = 2L;
 
 		@Override
 		public String[] getOptions()

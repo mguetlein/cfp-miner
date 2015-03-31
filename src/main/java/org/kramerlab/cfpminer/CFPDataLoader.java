@@ -41,11 +41,9 @@ public class CFPDataLoader
 		sdfEndpoints.put("AMES", "Ames test categorisation");
 	}
 
-	public HashMap<String, Dataset> allDatasets()
+	public String[] allDatasets()
 	{
-		for (String endpoint : FileUtil.readStringFromFile("endpoints.txt").split("\n"))
-			getDataset(endpoint);
-		return datasets;
+		return FileUtil.readStringFromFile("endpoints.txt").split("\n");
 	}
 
 	public CFPDataLoader(String dataFolder)
@@ -75,17 +73,29 @@ public class CFPDataLoader
 		}
 	}
 
-	public boolean exists(String name)
-	{
-		if (datasets.containsKey(name))
-			return true;
-		if (sdfDatasets.containsKey(name))
-			return new File(dataFolder + File.separator + sdfDatasets.get(name)).exists();
-		return new File(dataFolder + File.separator + name + ".csv").exists();
-	}
+	//	public boolean exists(String name)
+	//	{
+	//		if (datasets.containsKey(name))
+	//			return true;
+	//		if (sdfDatasets.containsKey(name))
+	//			return new File(dataFolder + File.separator + sdfDatasets.get(name)).exists();
+	//		return new File(dataFolder + File.separator + name + ".csv").exists();
+	//	}
 
 	public Dataset getDataset(String name)
 	{
+		return getDataset(name, null);
+	}
+
+	public Dataset getDataset(String name, Integer run)
+	{
+		if (run == null)
+			run = 1;
+		if (sdfDatasets.containsKey(name))
+			run = null;
+		if (run != null)
+			name = name + "_r" + String.format("%02d", run);
+
 		if (!datasets.containsKey(name))
 		{
 			try
@@ -120,10 +130,24 @@ public class CFPDataLoader
 					&& !a.getProperty(endpoint).toString().equals("blank")
 					&& !a.getProperty(endpoint).toString().equals("inconclusive"))
 			{
-				endpoints.add(a.getProperty(endpoint).toString());
 				String smi = new SmilesGenerator().create(a);
-				CDKUtil.setMolForSmiles(smi, a);
+				//				CDKUtil.setMolForSmiles(smi, a);
+
+				//				try
+				//				{
+				//					IAtomContainer m2 = new SmilesParser(SilentChemObjectBuilder.getInstance()).parseSmiles(smi);
+				//					if (m2.getAtomCount() == 0)
+				//						throw new RuntimeException("num atoms 0");
+				//					if (m2.getAtomCount() != a.getAtomCount())
+				//						throw new RuntimeException("num atoms " + a.getAtomCount() + " != " + m2.getAtomCount());
+				//				}
+				//				catch (Exception e)
+				//				{
+				//					e.printStackTrace();
+				//					System.exit(1);
+				//				}
 				smiles.add(smi);
+				endpoints.add(a.getProperty(endpoint).toString());
 			}
 		reader.close();
 

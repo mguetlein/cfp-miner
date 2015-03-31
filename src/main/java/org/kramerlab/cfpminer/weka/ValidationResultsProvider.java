@@ -17,6 +17,7 @@ import org.mg.javalib.datamining.Result;
 import org.mg.javalib.datamining.ResultSet;
 import org.mg.javalib.datamining.ResultSetBoxPlot;
 import org.mg.javalib.datamining.ResultSetFilter;
+import org.mg.javalib.datamining.ResultSetLinePlot;
 import org.mg.javalib.util.ArrayUtil;
 import org.mg.javalib.util.SwingUtil;
 import org.mg.javalib.weka.MergeArffFiles;
@@ -33,19 +34,32 @@ public class ValidationResultsProvider
 	ResultSet allResults;
 	ResultSet results;
 
-	static String performanceMeasures[] = { "AUC", "Accuracy", "Sensitivity", "Selectivity", "Specificity" };
+	static String performanceMeasures[];
 	static HashMap<String, String> wekaAttributes = new LinkedHashMap<>();
 	static
 	{
+		setPerformanceMeasures(new String[] { "AUC", "Accuracy", "Sensitivity", "Selectivity" }); //"Specificity"
+	}
+
+	public static void setPerformanceMeasures(String perf[])
+	{
+		performanceMeasures = perf;
+
+		wekaAttributes.clear();
 		wekaAttributes.put("Key_Scheme_options", "Method");
 		wekaAttributes.put("Key_Dataset", "Dataset");
 		wekaAttributes.put("Key_Run", "Run");
 		wekaAttributes.put("Key_Fold", "Fold");
-		wekaAttributes.put("Area_under_ROC", "AUC");
-		wekaAttributes.put("Percent_correct", "Accuracy");
-		wekaAttributes.put("True_positive_rate", "Sensitivity");
-		wekaAttributes.put("IR_precision", "Selectivity");
-		wekaAttributes.put("True_negative_rate", "Specificity");
+		if (ArrayUtil.indexOf(perf, "AUC") != -1)
+			wekaAttributes.put("Area_under_ROC", "AUC");
+		if (ArrayUtil.indexOf(perf, "Accuracy") != -1)
+			wekaAttributes.put("Percent_correct", "Accuracy");
+		if (ArrayUtil.indexOf(perf, "Sensitivity") != -1)
+			wekaAttributes.put("True_positive_rate", "Sensitivity");
+		if (ArrayUtil.indexOf(perf, "Selectivity") != -1)
+			wekaAttributes.put("IR_precision", "Selectivity");
+		if (ArrayUtil.indexOf(perf, "Specificity") != -1)
+			wekaAttributes.put("True_negative_rate", "Specificity");
 	}
 
 	public ValidationResultsProvider(String... arffResultFiles) throws Exception
@@ -73,6 +87,47 @@ public class ValidationResultsProvider
 						((Double) results.getResultValue(i, wekaAttributes.get("Percent_correct"))) * 0.01);
 	}
 
+	public static ValidationResultsProvider readResults(String dir, String includePattern) throws Exception
+	{
+		return readResults(dir, includePattern, null);
+	}
+
+	public static ValidationResultsProvider readResults(String dir, String includePattern, String excludePattern)
+			throws Exception
+	{
+		List<String> files = new ArrayList<String>();
+		for (String n : new File(dir).list())
+		{
+			String s = dir + File.separator + n;
+			if (!s.endsWith(".arff"))
+				continue;
+			//			System.out.println(s);
+			//			System.out.println(".*(" + includePattern + ").*");
+			//			System.out.println(s.matches(".*(" + includePattern + ").*"));
+			//			System.out.println(".*(" + excludePattern + ").*");
+			//			System.out.println(s.matches(".*(" + excludePattern + ").*"));
+			//			System.out.println();
+			if (!s.matches(".*(" + includePattern + ").*"))
+				continue;
+			if (excludePattern != null && s.matches(".*(" + excludePattern + ").*"))
+				continue;
+			files.add(s);
+		}
+		Collections.sort(files, new Comparator<String>()
+		{
+			@Override
+			public int compare(String o1, String o2)
+			{
+				if (o1.contains("filt") && o2.contains("fold"))
+					return 1;
+				if (o2.contains("filt") && o1.contains("fold"))
+					return -1;
+				return o1.compareTo(o2);
+			}
+		});
+		return new ValidationResultsProvider(ArrayUtil.toArray(files));
+	}
+
 	public void plot(String valPng)
 	{
 		ResultSetBoxPlot plot = new ResultSetBoxPlot(results, "", "", null, ArrayUtil.toList(performanceMeasures));
@@ -84,24 +139,42 @@ public class ValidationResultsProvider
 			SwingUtil.showInDialog(plot.getChart());
 	}
 
-	public void plots(String compareProp, String compareProp2)
+	public void plots(String compareProp, String compareProp2, boolean box)
 	{
 		DefaultFormBuilder builder = new DefaultFormBuilder(new FormLayout("fill:pref:grow"));
 		for (String p : performanceMeasures)
 		{
-			ResultSetBoxPlot plot = new ResultSetBoxPlot(results, "", p, compareProp, compareProp2, p);
-			plot.setHideMean(true);
-			//			plot.printResultsPerPlot(false);
-			plot.setRotateXLabels(true);
-			ChartPanel c = plot.getChart();
+			ChartPanel c;
+			if (box)
+			{
+				ResultSetBoxPlot plot = new ResultSetBoxPlot(results, "", p, compareProp, compareProp2, p);
+				plot.setHideMean(true);
+				plot.setRotateXLabels(true);
+				//			plot.printResultsPerPlot(false);
 
-			c.setMaximumDrawWidth(100000);
-			c.setPreferredSize(new Dimension(1750, 500));
+				c = plot.getChart();
+			}
+			else
+			{
+				ResultSet r = results.join(new String[] { compareProp, compareProp2 }, new String[] { "Run", "Fold" },
+						null);
+				//System.out.println(r.toNiceString());
+				ResultSetLinePlot plot = new ResultSetLinePlot(r, p, compareProp, compareProp2);
+				plot.setTitle(null);
+				plot.setXAxisLabel(null);
+				plot.setYAxisLabel(p);
+				plot.setRotateXLabels(true);
+				c = plot.getChartPanel();
+			}
+
+			c.setMaximumDrawWidth(10000);
+			c.setMaximumDrawHeight(5000);
+			c.setPreferredSize(new Dimension(1750, 800));
 
 			//			c.setBounds(new Rectangle(0, 0, 1000, 200));
 			builder.append(c);
 		}
-		SwingUtil.showInDialog(new JScrollPane(builder.getPanel()), new Dimension(1800, 768));
+		SwingUtil.showInDialog(new JScrollPane(builder.getPanel()), new Dimension(1850, 1100));
 	}
 
 	public void significanceTest()
@@ -131,50 +204,31 @@ public class ValidationResultsProvider
 
 	final static String SIZES[] = new String[] { "1024", "2048", "4096", "8192" };
 
-	public static void evalResults() throws Exception
+	public static void plotResults() throws Exception
+	{
+		for (String alg : new String[] { "RaF", "SMO" })
+		{
+			ValidationResultsProvider val = readResults("/home/martin/workspace/CFPMiner/results", alg,
+					"2048|4096|8192");
+			val.plots("Method", "Dataset", false);
+		}
+		System.exit(0);
+	}
+
+	public static void testResults() throws Exception
 	{
 		for (String alg : new String[] { "RaF", "SMO" })
 		{
 
-			//			final String leftSide = "filt";
-			//final String leftSide = "1024";
-			//			for (String p : new String[] { "1024", "2048", "4096", "8192" })
-			//for (String p : new String[] { "filt", "fold" })
 			{
-				String dir = "/home/martin/workspace/CFPMiner/results";
-				List<String> files = new ArrayList<String>();
-				for (String n : new File(dir).list())
-				{
-					String s = dir + File.separator + n;
-					if (s.endsWith(".arff") && s.contains(alg))// && s.contains(p))
-						files.add(s);
-				}
-				Collections.sort(files, new Comparator<String>()
-				{
-					@Override
-					public int compare(String o1, String o2)
-					{
-						if (o1.contains("filt") && o2.contains("fold"))
-							return 1;
-						if (o2.contains("filt") && o1.contains("fold"))
-							return -1;
-						return o1.compareTo(o2);
-					}
-				});
-				ValidationResultsProvider res = new ValidationResultsProvider(ArrayUtil.toArray(files));
-				//			res.significanceTest();
-				//			res.plots("Method", "Dataset");
-				//		for (String p : res.allResults.getProperties())
-				//			System.err.println(p);
-
-				//System.out.println(res.getResults().toNiceString());
-				ResultSet results = res.results;
+				ResultSet results = readResults("/home/martin/workspace/CFPMiner/results_no_closed", alg, null).results;
 				results.sortResults("Method");
-
 				//				{
 				//					System.out.println("\n\nprint auc\n");
-				//					ResultSet r = results.join(new String[] { "Method", "Dataset" }, new String[] {
-				//							"Run", "Fold" }, null);
+				//					ResultSet r = results.join(new String[] { "Method", "Dataset" }, new String[] { "Run", "Fold" },
+				//							null);
+				//					r.sortResults("Method");
+				//					System.out.println(r.toNiceString());
 				//					r.sortResults("Dataset");
 				//					r = r.filter(new ResultSetFilter()
 				//					{
@@ -188,20 +242,19 @@ public class ValidationResultsProvider
 				//					r = r.diff("Method", ArrayUtil.toList(new String[] { "Dataset" }), null);
 				//					System.out.println(r.toNiceString());
 				//				}
-
 				{
 					System.out.println("\n\ncompare filtering to folding\n");
-					ttest(results, "filt", true);
+					System.out.println(ttest(results, "AUC", "filt", true).toNiceString());
 				}
 				{
 					System.out.println("\n\ncompare different sizes when folding\n");
 					ResultSet r = retain(results, "Method", "fold");
-					ttest(r, "1024", false);
+					System.out.println(ttest(r, "AUC", "1024", false).toNiceString());
 				}
 				{
 					System.out.println("\n\ncompare different sizes when filtering\n");
 					ResultSet r = retain(results, "Method", "filt");
-					ttest(r, "1024", false);
+					System.out.println(ttest(r, "AUC", "1024", false).toNiceString());
 				}
 			}
 		}
@@ -219,47 +272,41 @@ public class ValidationResultsProvider
 		});
 	}
 
-	private static void ttest(ResultSet set, final String leftSide, final boolean numberEqual)
+	public static ResultSet ttest(ResultSet set, String measure, final String leftSide, final boolean numberEqual)
 	{
-		for (double prob : new double[] { 1.0, 0.05 })
+		double prob = 0.05;
+		ResultSet test = set.pairedTTestWinLoss("Method", ArrayUtil.toList(new String[] { "Run", "Fold" }), measure,
+				prob, "Dataset", true);
+		test = test.filter(new ResultSetFilter()
 		{
-
-			if (prob == 1.0)
-				System.out.println("win - loss");
-			else
-				System.out.println("significant " + prob);
-			ResultSet test = set.pairedTTestWinLoss("Method", ArrayUtil.toList(new String[] { "Run", "Fold" }), "AUC",
-					prob, "Dataset");
-			test = test.filter(new ResultSetFilter()
+			@Override
+			public boolean accept(Result result)
 			{
-				@Override
-				public boolean accept(Result result)
+				boolean keep = result.getValue("Method_1").toString().contains(leftSide);
+				if (!keep)
+					return false;
+				if (numberEqual)
 				{
-					boolean keep = result.getValue("Method_1").toString().contains(leftSide);
-					if (!keep)
-						return false;
-					if (numberEqual)
+					for (String size : SIZES)
 					{
-						for (String size : SIZES)
-						{
-							if (result.getValue("Method_1").toString().contains(size)
-									&& result.getValue("Method_2").toString().contains(size))
-								return true;
-						}
-						return false;
+						if (result.getValue("Method_1").toString().contains(size)
+								&& result.getValue("Method_2").toString().contains(size))
+							return true;
 					}
-					else
-						return true;
-
+					return false;
 				}
-			});
-			System.out.println(test.toNiceString());
-		}
+				else
+					return true;
+
+			}
+		});
+		return test;
 	}
 
 	public static void main(String[] args) throws Exception
 	{
-		evalResults();
+		//plotResults();
+		testResults();
 
 		//		ValidationResultsProvider res = new ValidationResultsProvider(
 		//				"/home/martin/workspace/CFPService/persistance/model/CPDBAS_Mutagenicity.arff");
