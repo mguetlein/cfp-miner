@@ -18,6 +18,7 @@ import org.mg.javalib.datamining.ResultSet;
 import org.mg.javalib.datamining.ResultSetBoxPlot;
 import org.mg.javalib.datamining.ResultSetFilter;
 import org.mg.javalib.datamining.ResultSetLinePlot;
+import org.mg.javalib.datamining.ResultSetLinePlot.XLabelsRotation;
 import org.mg.javalib.util.ArrayUtil;
 import org.mg.javalib.util.SwingUtil;
 import org.mg.javalib.weka.MergeArffFiles;
@@ -50,6 +51,8 @@ public class ValidationResultsProvider
 		wekaAttributes.put("Key_Dataset", "Dataset");
 		wekaAttributes.put("Key_Run", "Run");
 		wekaAttributes.put("Key_Fold", "Fold");
+		wekaAttributes.put("measureNumAttributesSelected", "Features");
+
 		if (ArrayUtil.indexOf(perf, "AUC") != -1)
 			wekaAttributes.put("Area_under_ROC", "AUC");
 		if (ArrayUtil.indexOf(perf, "Accuracy") != -1)
@@ -133,8 +136,9 @@ public class ValidationResultsProvider
 		ResultSetBoxPlot plot = new ResultSetBoxPlot(results, "", "", null, ArrayUtil.toList(performanceMeasures));
 		plot.setHideMean(true);
 		plot.printResultsPerPlot(false);
+		plot.setPrintMeanAndStdev(true);
 		if (valPng != null)
-			plot.ToPNGFile(valPng, new Dimension(500, 150));
+			plot.ToPNGFile(valPng, new Dimension(450, 150));
 		else
 			SwingUtil.showInDialog(plot.getChart());
 	}
@@ -163,7 +167,7 @@ public class ValidationResultsProvider
 				plot.setTitle(null);
 				plot.setXAxisLabel(null);
 				plot.setYAxisLabel(p);
-				plot.setRotateXLabels(true);
+				plot.setRotateXLabels(XLabelsRotation.vertical);
 				c = plot.getChartPanel();
 			}
 
@@ -276,7 +280,7 @@ public class ValidationResultsProvider
 	{
 		double prob = 0.05;
 		ResultSet test = set.pairedTTestWinLoss("Method", ArrayUtil.toList(new String[] { "Run", "Fold" }), measure,
-				prob, "Dataset", true);
+				prob, 1 / 9.0, "Dataset", true);
 		test = test.filter(new ResultSetFilter()
 		{
 			@Override

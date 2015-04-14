@@ -145,6 +145,9 @@ public class AttributeCrossvalidator
 		@Override
 		public void buildClassifier(Instances oldData) throws Exception
 		{
+			//			if (currentBuildCount.get(Thread.currentThread()) > 0)
+			//				return;
+
 			//			System.out.println(oldData);
 			// apply filter based on list of indices in the training dataset
 			HashSet<Integer> filterSubset = new HashSet<Integer>();
@@ -159,12 +162,18 @@ public class AttributeCrossvalidator
 			Instances newData = getData(oldData.attribute(1));
 			for (Instance oldInstance : oldData)
 				copyInstance(newData, oldInstance);
+
+			//			long start = System.currentTimeMillis();
 			classifier.buildClassifier(newData);
+			//			System.err.println("build time: " + (System.currentTimeMillis() - start) / 1000.0);
 		}
 
 		@Override
 		public double[] distributionForInstance(Instance oldInstance) throws Exception
 		{
+			//			if (currentBuildCount.get(Thread.currentThread()) > 0)
+			//				return new double[] { 0.0, 0.0 };
+
 			// add feature values to instance data
 			Instances newData = getData(null);
 			copyInstance(newData, oldInstance);
