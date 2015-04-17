@@ -416,7 +416,7 @@ public class CFPDataLoader
 		set.sortProperties(props);
 		set = set.join(new String[] { "category", "subCategory", "source" }, new String[] { "name", "target" }, null);
 
-		System.out.println(set.toNiceString());
+		//		System.out.println(set.toNiceString());
 
 		for (int i = 0; i < set.getNumResults(); i++)
 		{
@@ -594,4 +594,12 @@ public class CFPDataLoader
 		return map;
 	}
 
+	public static Set<String> listCategoryDatasets(String category)
+	{
+		HashSet<String> datasets = new HashSet<>();
+		for (String s : datasetCategory.keySet())
+			if (datasetCategory.get(s).equals(category))
+				datasets.add(s);
+		return datasets;
+	}
 }

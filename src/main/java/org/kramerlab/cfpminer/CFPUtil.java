@@ -6,6 +6,7 @@ import java.util.Random;
 
 import org.kramerlab.cfpminer.CFPMiner.CFPType;
 import org.kramerlab.cfpminer.CFPMiner.FeatureSelection;
+import org.kramerlab.cfpminer.weka.AttributeCrossvalidator;
 import org.mg.javalib.datamining.ResultSet;
 import org.mg.javalib.datamining.ResultSetIO;
 import org.mg.javalib.util.ListUtil;
@@ -78,6 +79,8 @@ public class CFPUtil
 
 	public static void amesRuntimeTest() throws Exception
 	{
+		AttributeCrossvalidator.RUNTIME_DEBUG = true;
+
 		String datasetName = "AMES";
 		int run = 1;
 		CFPType type = CFPType.ecfp6;
@@ -95,7 +98,7 @@ public class CFPUtil
 		cfps.hashfoldsize = hashfoldsize;
 		cfps.mine(list);
 
-		String classifier = "RaF";
+		String classifier = "SMO";
 		for (int i : new int[] { 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192 })
 		{
 			cfps.hashfoldsize = i;
@@ -104,5 +107,47 @@ public class CFPUtil
 		}
 
 		System.exit(0);
+	}
+
+	public static void demo() throws Exception
+	{
+		String datasetName = "CPDBAS_MultiCellCall";
+		int run = 1;
+		CFPType type = CFPType.fcfp4;
+		FeatureSelection featureSelection = FeatureSelection.filt;
+		//		int hashfoldsize = 1024;
+
+		CFPDataLoader.Dataset dataset = new CFPDataLoader("data").getDataset(datasetName, run);
+		List<String> list = dataset.smiles;
+		List<String> endpointValues = dataset.endpoints;
+		ListUtil.scramble(new Random(1), list, endpointValues);
+
+		CFPMiner cfps = new CFPMiner(ListUtil.cast(String.class, endpointValues));
+		cfps.type = type;
+		cfps.featureSelection = featureSelection;
+		//		cfps.hashfoldsize = hashfoldsize;
+		cfps.mine(list);
+
+		for (String classifier : new String[] { "SMO", "RaF" })
+		{
+			for (int i : new int[] { classifier.equals("RaF") ? 1024 : 1024 })
+			{
+				Boolean b = null;
+				//				for (Boolean b : new boolean[] { true, false })
+				//				{
+				//					AttributeCrossvalidator.FORCE_SPARSE = b;
+				cfps.hashfoldsize = i;
+				CFPMiner.validate(datasetName, run, "/tmp/" + classifier + "_" + b + "_mult.arff",
+						new String[] { classifier }, endpointValues, new CFPMiner[] { cfps });
+				//				}
+			}
+		}
+
+		System.exit(0);
+	}
+
+	public static void main(String[] args) throws Exception
+	{
+		demo();
 	}
 }

@@ -29,6 +29,7 @@ import weka.core.Attribute;
 import weka.core.DenseInstance;
 import weka.core.Instance;
 import weka.core.Instances;
+import weka.core.SparseInstance;
 import weka.core.converters.ArffSaver;
 import weka.experiment.ClassifierSplitEvaluator;
 import weka.experiment.CrossValidationResultProducer;
@@ -40,6 +41,9 @@ import weka.experiment.SplitEvaluator;
 
 public class AttributeCrossvalidator
 {
+	public static boolean RUNTIME_DEBUG = false;
+	public static Boolean FORCE_SPARSE = null;
+
 	public static interface AttributeProvider extends Serializable
 	{
 		public String getName();
@@ -74,8 +78,9 @@ public class AttributeCrossvalidator
 	{
 		Classifier classifier;
 		AttributeProvider attributeProvider;
+		boolean sparse = false;
 
-		private final static long serialVersionUID = 2L;
+		private final static long serialVersionUID = 4L;
 
 		@Override
 		public String[] getOptions()
@@ -86,6 +91,10 @@ public class AttributeCrossvalidator
 		public MyClassifier(Classifier classifier, AttributeProvider attributeProvider)
 		{
 			this.classifier = classifier;
+			if (FORCE_SPARSE != null)
+				sparse = FORCE_SPARSE;
+			else if (classifier instanceof SMO)
+				sparse = true;
 			this.attributeProvider = attributeProvider;
 		}
 
@@ -113,7 +122,11 @@ public class AttributeCrossvalidator
 			for (int i = 0; i < attributeProvider.getNumAttributes(); i++)
 				vals[i] = attributeProvider.getAttributeValue(idx, i);
 			vals[newData.numAttributes() - 1] = endpoint;
-			DenseInstance inst = new DenseInstance(newData.numAttributes(), vals);
+			Instance inst;
+			if (sparse)
+				inst = new SparseInstance(1.0, vals);
+			else
+				inst = new DenseInstance(1.0, vals);
 			inst.setDataset(newData);
 			newData.add(inst);
 		}
@@ -145,8 +158,8 @@ public class AttributeCrossvalidator
 		@Override
 		public void buildClassifier(Instances oldData) throws Exception
 		{
-			//			if (currentBuildCount.get(Thread.currentThread()) > 0)
-			//				return;
+			if (RUNTIME_DEBUG && currentBuildCount.get(Thread.currentThread()) > 0)
+				return;
 
 			//			System.out.println(oldData);
 			// apply filter based on list of indices in the training dataset
@@ -163,16 +176,25 @@ public class AttributeCrossvalidator
 			for (Instance oldInstance : oldData)
 				copyInstance(newData, oldInstance);
 
-			//			long start = System.currentTimeMillis();
+			long start = System.currentTimeMillis();
+
+			//			{
+			//				ArffSaver saver = new ArffSaver();
+			//				saver.setInstances(newData);
+			//				saver.setFile(new File("/tmp/test.arff"));
+			//				saver.writeBatch();
+			//			}
+
 			classifier.buildClassifier(newData);
-			//			System.err.println("build time: " + (System.currentTimeMillis() - start) / 1000.0);
+			if (RUNTIME_DEBUG)
+				System.err.println("build time: " + (System.currentTimeMillis() - start) / 1000.0);
 		}
 
 		@Override
 		public double[] distributionForInstance(Instance oldInstance) throws Exception
 		{
-			//			if (currentBuildCount.get(Thread.currentThread()) > 0)
-			//				return new double[] { 0.0, 0.0 };
+			if (RUNTIME_DEBUG && currentBuildCount.get(Thread.currentThread()) > 0)
+				return new double[] { 0.0, 0.0 };
 
 			// add feature values to instance data
 			Instances newData = getData(null);
@@ -219,6 +241,8 @@ public class AttributeCrossvalidator
 				this.classifiers[idx++] = new RandomForest();
 			else if (cl.equals("SMO"))
 				this.classifiers[idx++] = new SMO();
+			//			else if (cl.equals("LibSVM"))
+			//				this.classifiers[idx++] = new LibSVM();
 			else
 				throw new IllegalArgumentException(cl);
 		}

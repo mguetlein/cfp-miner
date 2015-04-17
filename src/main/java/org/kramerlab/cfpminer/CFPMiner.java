@@ -71,6 +71,28 @@ public class CFPMiner implements Serializable, AttributeCrossvalidator.Attribute
 				throw new IllegalStateException("wtf");
 		}
 
+		public int getDiameter()
+		{
+			if (this == ecfp6)
+				return 6;
+			else if (this == fcfp6)
+				return 6;
+			else if (this == ecfp4)
+				return 4;
+			else if (this == fcfp4)
+				return 4;
+			else if (this == ecfp2)
+				return 2;
+			else if (this == fcfp2)
+				return 2;
+			else if (this == ecfp0)
+				return 0;
+			else if (this == fcfp0)
+				return 0;
+			else
+				throw new IllegalStateException("wtf");
+		}
+
 		public String toNiceString()
 		{
 			return this.toString().toUpperCase();
@@ -90,6 +112,8 @@ public class CFPMiner implements Serializable, AttributeCrossvalidator.Attribute
 					return "Filtering";
 				case fold:
 					return "Folding";
+				case none:
+					return "All";
 			}
 			return this.toString();
 		}

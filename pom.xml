@@ -292,6 +292,13 @@
       <version>2.1.2</version>
     </dependency>
     
+<!--     <dependency>
+	<groupId>nz.ac.waikato.cms.weka</groupId>
+	<artifactId>LibSVM</artifactId>
+	<version>1.0.6</version>  
+</dependency> -->
+    
+    
     
     </dependencies>
     
