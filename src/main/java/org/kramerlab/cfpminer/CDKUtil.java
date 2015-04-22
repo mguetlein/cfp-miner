@@ -66,4 +66,10 @@ public class CDKUtil
 		}
 		return inchiToMol.get(inchi);
 	}
+
+	public static void validateSmiles(String smiles) throws InvalidSmilesException
+	{
+		if (parseSmiles(smiles) == null || parseSmiles(smiles).getAtomCount() == 0)
+			throw new InvalidSmilesException("not a valid smiles: '" + smiles + "'");
+	}
 }

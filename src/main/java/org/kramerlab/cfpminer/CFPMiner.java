@@ -103,7 +103,6 @@ public class CFPMiner implements Serializable, AttributeCrossvalidator.Attribute
 	{
 		filt, fold, none;
 
-		@SuppressWarnings("incomplete-switch")
 		public String toNiceString()
 		{
 			switch (this)
@@ -115,7 +114,21 @@ public class CFPMiner implements Serializable, AttributeCrossvalidator.Attribute
 				case none:
 					return "All";
 			}
-			return this.toString();
+			throw new IllegalStateException();
+		}
+
+		public String attribute()
+		{
+			switch (this)
+			{
+				case filt:
+					return "Filtered";
+				case fold:
+					return "Folded";
+				case none:
+					return "All";
+			}
+			throw new IllegalStateException();
 		}
 	}
 
@@ -162,6 +175,21 @@ public class CFPMiner implements Serializable, AttributeCrossvalidator.Attribute
 	public List<String> getTrainingDataSmiles()
 	{
 		return trainingDataSmiles;
+	}
+
+	public CFPType getCFPType()
+	{
+		return type;
+	}
+
+	public FeatureSelection getFeatureSelection()
+	{
+		return featureSelection;
+	}
+
+	public String getFeatureType()
+	{
+		return featureSelection.attribute() + " " + type.toNiceString();
 	}
 
 	public void setType(CFPType type)
@@ -906,4 +934,5 @@ public class CFPMiner implements Serializable, AttributeCrossvalidator.Attribute
 			validate(datasetName, run, outfile, new String[] { classifier }, endpointValues, new CFPMiner[] { cfps });
 		}
 	}
+
 }
