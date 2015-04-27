@@ -9,6 +9,7 @@ import java.util.Random;
 import java.util.Set;
 
 import org.apache.commons.math3.stat.inference.TestUtils;
+import org.kramerlab.cfpminer.cdk.CDKUtil;
 import org.mg.javalib.util.CountedSet;
 import org.mg.javalib.util.HashUtil;
 import org.mg.javalib.util.ListUtil;

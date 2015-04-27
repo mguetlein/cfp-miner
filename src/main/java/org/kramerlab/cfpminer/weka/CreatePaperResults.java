@@ -17,6 +17,7 @@ import java.util.Set;
 
 import org.jfree.chart.ChartPanel;
 import org.kramerlab.cfpminer.CFPDataLoader;
+import org.kramerlab.cfpminer.CFPMiner;
 import org.kramerlab.cfpminer.CFPMiner.CFPType;
 import org.kramerlab.cfpminer.CFPMiner.FeatureSelection;
 import org.mg.javalib.datamining.Result;
@@ -41,8 +42,12 @@ public class CreatePaperResults
 		showCharts = true;
 
 		//tableCollisions(false);
-		ranking("");
+		//ranking("");
 		//datasets();
+
+		ALGORITHMS = new String[] { "RaF" };
+		read("filt");
+		best();
 
 		//		read("ecfp4_1024");
 		//		lineChart();
@@ -85,9 +90,6 @@ public class CreatePaperResults
 	static Double TEST_CORRECTION = 1 / 9.0;
 	static String[] SIZES = { "1024", "2048", "4096", "8192" };
 	static String[] ALGORITHMS = new String[] { "RaF", "SMO" };
-
-	public static final String RESULTS_UNMERGED = "/home/martin/workspace/CFPMiner/results_r5_all/";
-	public static final String RESULTS_MERGED = "/home/martin/workspace/CFPMiner/results_r5_all_merged/";
 
 	static HashMap<String, String> niceValues = new HashMap<>();
 	static HashMap<String, String> niceValuesShort = new HashMap<>();
@@ -135,7 +137,8 @@ public class CreatePaperResults
 			paramsStr = params.length() > 0 ? ("_" + params) : "";
 			String name = alg + paramsStr;
 			System.out.println("reading " + name);
-			ValidationResultsProvider valRes = new ValidationResultsProvider(RESULTS_MERGED + name + ".arff");
+			ValidationResultsProvider valRes = new ValidationResultsProvider(
+					ValidationResultsProvider.RESULTS_MERGED_FOLDER + name + ".arff");
 			System.out.println("done");
 
 			algResults.put(alg, valRes.results);
@@ -218,8 +221,9 @@ public class CreatePaperResults
 		//		final boolean orP2 = false;
 
 		//csvToArff("/home/martin/data/arffs/nctrer.csv", "/home/martin/data/arffs/nctrer.arff");
-		String dir = RESULTS_UNMERGED;
-		String dest = RESULTS_MERGED + alg + (p == null ? "" : ("_" + p)) + (p2 == null ? "" : ("_" + p2)) + ".arff";
+		String dir = ValidationResultsProvider.RESULTS_FOLDER;
+		String dest = ValidationResultsProvider.RESULTS_MERGED_FOLDER + alg + (p == null ? "" : ("_" + p))
+				+ (p2 == null ? "" : ("_" + p2)) + ".arff";
 
 		if (!new File(dest).exists())
 			MergeArffFiles.merge(dir, new FilenameFilter()
@@ -253,7 +257,7 @@ public class CreatePaperResults
 
 	public void merge() throws Exception
 	{
-		for (String alg : new String[] { "RaF", "SMO" })
+		for (String alg : ALGORITHMS)
 		{
 			merge(alg, null, null);
 
@@ -270,6 +274,7 @@ public class CreatePaperResults
 			for (String feat : new String[] { "fold", "filt" })
 			{
 				merge(alg, feat, null);
+				merge(alg, "ecfp", feat);
 				merge(alg, "ecfp4", feat);
 				merge(alg, feat, "1024");
 			}
@@ -390,6 +395,102 @@ public class CreatePaperResults
 		}
 	}
 
+	public void best() throws Exception
+	{
+		StringBuffer rerunScript = new StringBuffer();
+		rerunScript.append("#!/bin/bash\n");
+		rerunScript.append("module load Java/jdk1.8.0_25\n");
+
+		String alg = "RaF";
+		ResultSet best = new ResultSet();
+		//        System.out.println(algResults.get(alg).toNiceString());
+		for (final String dataset : new CFPDataLoader("data").allDatasets())
+		{
+			ResultSet r = algResults.get(alg).filter(new ResultSetFilter()
+			{
+				@Override
+				public boolean accept(Result result)
+				{
+					return result.getValue("Dataset").equals(dataset);
+				}
+			});
+			r = r.join(new String[] { "Method", "Dataset" }, new String[] { "Run", "Fold" }, null);
+
+			r.sortResults("Method", new Comparator<Object>()
+			{
+				@Override
+				public int compare(Object o1, Object o2)
+				{
+					String method = o1.toString();
+					String method2 = o2.toString();
+					String size = sizeFromMethod(method);
+					String size2 = sizeFromMethod(method2);
+					if (!size.equals(size2))
+						return new Integer(size).compareTo(new Integer(size2));
+					return 0;
+					//                                CFPType type = fpFromMethod(method);
+					//                                CFPType type2 = fpFromMethod(method2);
+					//                                if (type.getDiameter() != type2.getDiameter())
+					//                                    return new Integer(type.getDiameter()).compareTo(new Integer(type.getDiameter()));
+					//                                if (type != type2)
+				}
+			});
+			r.sortResults("Features", !dataset.equals("AMES"));
+			r.sortResults("AUC", false);
+
+			if (r.getResultValue(0, "AUC").equals(r.getResultValue(1, "AUC"))
+					&& r.getResultValue(0, "Features").equals(r.getResultValue(1, "Features"))
+					&& sizeFromMethod(r.getResultValue(0, "Method").toString()).equals(
+							sizeFromMethod(r.getResultValue(1, "Method").toString())))
+				throw new Error("equal: auc && #features && size:\n" + r.toNiceString());
+
+			System.out.println(dataset);
+			System.out.println(r.getResultValue(0, "Method"));
+			//            System.out.println(r.toNiceString());
+			System.out.println();
+
+			int idx = best.addResult();
+			best.setResultValue(idx, "Dataset", dataset);
+			CFPType type = fpFromMethod(r.getResultValue(0, "Method").toString());
+			int size = Integer.valueOf(sizeFromMethod(r.getResultValue(0, "Method").toString()));
+			best.setResultValue(idx, "type", type);
+			best.setResultValue(idx, "hashfoldsize", size);
+
+			if (dataset.startsWith("ChEMBL") || dataset.startsWith("MUV"))
+			{
+				for (int run = 1; run <= 5; run++)
+				{
+					String resFile = CFPMiner.resultFileName(run, type, FeatureSelection.filt, size, alg, dataset);
+					String outFile = resFile.replace(".arff", ".output");
+					rerunScript.append("bsub -q short -W 300 -n 1 -app Reserve5G -o output/" + outFile
+							+ "  java -jar -Xmx2G cfpminer.jar --datasetName " + dataset + " --run " + run
+							+ " --classifier " + alg + " --type " + type + " --featureSelection filt --hashfoldsize "
+							+ size + " -x\n");
+					rerunScript.append("sleep 0.5\n");
+				}
+			}
+			else
+			{
+				String src = "/home/martin/workspace/CFPMiner/results_r5_all/";
+				String dest = "/home/martin/workspace/CFPMiner/results_r5_best_no_resample/";
+				for (int run = 1; run <= 5; run++)
+				{
+					String resFile = CFPMiner.resultFileName(run, type, FeatureSelection.filt, size, alg, dataset);
+					FileUtil.copy(src + resFile, dest + resFile);
+				}
+			}
+		}
+		System.out.println(best.toString());
+		String dest = ValidationResultsProvider.RESULTS_MERGED_FOLDER + alg + paramsStr + ".best";
+		ResultSetIO.printToFile(new File(dest), best, true);
+		System.out.println("written best methods to " + dest);
+
+		FileUtil.writeStringToFile("/tmp/killme", rerunScript.toString());
+		//        System.out.println();
+		//        System.out.flush();
+		//        System.err.println(rerunScript);
+	}
+
 	public void ranking(String params) throws Exception
 	{
 		ResultSet combined = new ResultSet();
@@ -399,7 +500,7 @@ public class CreatePaperResults
 
 			this.params = params;
 			paramsStr = params.length() > 0 ? ("_" + params) : "";
-			String cache = RESULTS_MERGED + alg + paramsStr + ".ranking";
+			String cache = ValidationResultsProvider.RESULTS_MERGED_FOLDER + alg + paramsStr + ".ranking";
 			if (!new File(cache).exists())
 			{
 				read(new String[] { alg }, params);

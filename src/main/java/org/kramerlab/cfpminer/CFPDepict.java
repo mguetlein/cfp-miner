@@ -16,8 +16,10 @@ import java.util.List;
 import javax.imageio.ImageIO;
 import javax.swing.ImageIcon;
 import javax.swing.JLabel;
+import javax.swing.JScrollPane;
 import javax.swing.SwingConstants;
 
+import org.kramerlab.cfpminer.cdk.HighlightGenerator;
 import org.mg.javalib.gui.MultiImageIcon;
 import org.mg.javalib.gui.MultiImageIcon.Layout;
 import org.mg.javalib.gui.MultiImageIcon.Orientation;
@@ -30,6 +32,7 @@ import org.openscience.cdk.exception.InvalidSmilesException;
 import org.openscience.cdk.graph.ConnectivityChecker;
 import org.openscience.cdk.interfaces.IAtomContainer;
 import org.openscience.cdk.interfaces.IAtomContainerSet;
+import org.openscience.cdk.interfaces.IBond;
 import org.openscience.cdk.interfaces.IChemObject;
 import org.openscience.cdk.layout.StructureDiagramGenerator;
 import org.openscience.cdk.renderer.AtomContainerRenderer;
@@ -37,7 +40,6 @@ import org.openscience.cdk.renderer.font.AWTFontManager;
 import org.openscience.cdk.renderer.generators.BasicAtomGenerator;
 import org.openscience.cdk.renderer.generators.BasicBondGenerator;
 import org.openscience.cdk.renderer.generators.BasicSceneGenerator;
-import org.openscience.cdk.renderer.generators.HighlightGenerator;
 import org.openscience.cdk.renderer.visitor.AWTDrawVisitor;
 import org.openscience.cdk.silent.AtomContainer;
 import org.openscience.cdk.silent.SilentChemObjectBuilder;
@@ -119,19 +121,20 @@ public class CFPDepict
 		return image;
 	}
 
-	public static void drawFPtoPng(String pngFile, IAtomContainer mol, int atoms[], boolean crop, int size)
-			throws Exception
+	public static void drawFPtoPng(String pngFile, IAtomContainer mol, int atoms[], boolean highlightOutgoingBonds,
+			boolean crop, int size) throws Exception
 	{
-		BufferedImage image = drawFP(mol, atoms, crop, size);
+		BufferedImage image = drawFP(mol, atoms, highlightOutgoingBonds, crop, size);
 		ImageIO.write((RenderedImage) image, "PNG", new File(pngFile));
 	}
 
-	public static BufferedImage drawFP(IAtomContainer mol, int atoms[], boolean crop, int size) throws Exception
+	public static BufferedImage drawFP(IAtomContainer mol, int atoms[], boolean highlightOutgoingBonds, boolean crop,
+			int size) throws Exception
 	{
 		IAtomContainerSet set = ConnectivityChecker.partitionIntoMolecules(mol);
 		BufferedImage image = null;
 		if (set.getAtomContainerCount() < 2)
-			image = drawFPConnected(mol, atoms, crop, size);
+			image = drawFPConnected(mol, atoms, highlightOutgoingBonds, crop, size);
 		else
 		{
 			int minAtomIdx = ArrayUtil.getMinMax(atoms)[0];
@@ -146,7 +149,8 @@ public class CFPDepict
 				}
 				else
 				{
-					image = drawFPConnected(set.getAtomContainer(i), atoms, crop, crop ? size : -1);
+					image = drawFPConnected(set.getAtomContainer(i), atoms, highlightOutgoingBonds, crop, crop ? size
+							: -1);
 					icons.add(new ImageIcon(image));
 				}
 				minAtomIdx -= set.getAtomContainer(i).getAtomCount();
@@ -164,8 +168,8 @@ public class CFPDepict
 	}
 
 	@SuppressWarnings("unchecked")
-	public static BufferedImage drawFPConnected(IAtomContainer mol, int atoms[], boolean crop, int size)
-			throws Exception
+	public static BufferedImage drawFPConnected(IAtomContainer mol, int atoms[], boolean highlightOutgoingBonds,
+			boolean crop, int size) throws Exception
 	{
 		if (atoms == null || atoms.length == 0)
 			if (crop)
@@ -181,12 +185,23 @@ public class CFPDepict
 		HashMap<IChemObject, Integer> ids = new HashMap<IChemObject, Integer>();
 		IAtomContainer s = new AtomContainer();
 		for (int j = 0; j < mol.getAtomCount(); j++)
-			if (atoms != null && ArrayUtil.indexOf(atoms, j) != -1)
+		{
+			if (atoms == null || ArrayUtil.indexOf(atoms, j) == -1)
+				continue;
+			ids.put(mol.getAtom(j), 1);
+			s.addAtom(mol.getAtom(j));
+
+			for (int i = 0; i < mol.getAtomCount(); i++)
 			{
-				ids.put(mol.getAtom(j), 1);
-				//				System.out.println("s " + mol.getAtom(j).getPoint2d());
-				s.addAtom(mol.getAtom(j));
+				if (i == j)
+					continue;
+				if (!highlightOutgoingBonds && ArrayUtil.indexOf(atoms, i) == -1)
+					continue;
+				IBond b = mol.getBond(mol.getAtom(j), mol.getAtom(i));
+				if (b != null)
+					ids.put(b, 1);
 			}
+		}
 		//			else
 		//				System.out.println("n " + mol.getAtom(j).getPoint2d());
 		mol.setProperty(HighlightGenerator.ID_MAP, ids);
@@ -201,7 +216,7 @@ public class CFPDepict
 
 		renderer.getRenderer2DModel().set(HighlightGenerator.HighlightPalette.class,
 				HighlightGenerator.createPalette(null, ColorUtil.transparent(Color.RED, 150)));
-		renderer.getRenderer2DModel().set(HighlightGenerator.HighlightRadius.class, 15.0);
+		renderer.getRenderer2DModel().set(HighlightGenerator.HighlightRadius.class, 12.5);
 
 		// determine preferred size of molecule
 		renderer.setup(mol, new Rectangle(0, 0, 1, 1));
@@ -304,20 +319,20 @@ public class CFPDepict
 
 	public static void demo() throws InvalidSmilesException, Exception
 	{
-		{
-			DefaultFormBuilder b = new DefaultFormBuilder(new FormLayout("p"));
-			for (Integer size : new Integer[] { 100, -1 })
-			{
-				for (String smiles : new String[] { "[Na+].[Na+].O=S(C1=CC=C(C(C)CC)C=C1)([O-])=O",
-						"CC(C)C(C1=CC=C(C=C1)Cl)C(=O)OC(C#N)C2=CC(=CC=C2)OC3=CC=CC=C3" })
-				{
-					BufferedImage img = draw(
-							new SmilesParser(SilentChemObjectBuilder.getInstance()).parseSmiles(smiles), size);
-					b.append(getLabel(img, smiles + " size:" + size));
-				}
-			}
-			SwingUtil.showInFrame(b.getPanel());
-		}
+		//		{
+		//			DefaultFormBuilder b = new DefaultFormBuilder(new FormLayout("p"));
+		//			for (Integer size : new Integer[] { 100, -1 })
+		//			{
+		//				for (String smiles : new String[] { "[Na+].[Na+].O=S(C1=CC=C(C(C)CC)C=C1)([O-])=O",
+		//						"CC(C)C(C1=CC=C(C=C1)Cl)C(=O)OC(C#N)C2=CC(=CC=C2)OC3=CC=CC=C3" })
+		//				{
+		//					BufferedImage img = draw(
+		//							new SmilesParser(SilentChemObjectBuilder.getInstance()).parseSmiles(smiles), size);
+		//					b.append(getLabel(img, smiles + " size:" + size));
+		//				}
+		//			}
+		//			SwingUtil.showInFrame(b.getPanel());
+		//		}
 		{
 			DefaultFormBuilder b = new DefaultFormBuilder(new FormLayout("p"));
 			int atoms[] = new int[] { 1, 2, 3 };
@@ -331,14 +346,18 @@ public class CFPDepict
 					for (String smiles : new String[] { "O=C1C2=C(C=CC=C2)C(=O)C3=C1C=CC=C3",
 							"C1(=C(C=CC=C1)N)OC.[H]Cl" })
 					{
-						BufferedImage img = drawFP(
-								new SmilesParser(SilentChemObjectBuilder.getInstance()).parseSmiles(smiles), atoms,
-								crop, size);
-						b.append(getLabel(img, smiles + " crop:" + crop + " size:" + size));
+						for (boolean bonds : new boolean[] { true, false })
+						{
+
+							BufferedImage img = drawFP(
+									new SmilesParser(SilentChemObjectBuilder.getInstance()).parseSmiles(smiles), atoms,
+									bonds, crop, size);
+							b.append(getLabel(img, smiles + " crop:" + crop + " size:" + size));
+						}
 					}
 				}
 			}
-			SwingUtil.showInFrame(b.getPanel());
+			SwingUtil.showInFrame(new JScrollPane(b.getPanel()));
 		}
 		System.exit(1);
 

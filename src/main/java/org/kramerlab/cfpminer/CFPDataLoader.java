@@ -34,6 +34,7 @@ public class CFPDataLoader
 {
 	public String dataFolder = "data";
 	private HashMap<String, Dataset> datasets = new HashMap<>();
+	private boolean resampleDecoys = true;
 
 	public static class Source
 	{
@@ -443,6 +444,11 @@ public class CFPDataLoader
 		return set;
 	}
 
+	public void setResampleDecoys(boolean resampleDecoys)
+	{
+		this.resampleDecoys = resampleDecoys;
+	}
+
 	public Dataset getDataset(String name, Integer run)
 	{
 		if (run == null)
@@ -450,7 +456,11 @@ public class CFPDataLoader
 		if (sdfDatasets.containsKey(name))
 			run = null;
 		if (run != null)
+		{
+			if (!resampleDecoys)
+				run = 1;
 			name = name + "_r" + String.format("%02d", run);
+		}
 
 		if (!datasets.containsKey(name))
 		{

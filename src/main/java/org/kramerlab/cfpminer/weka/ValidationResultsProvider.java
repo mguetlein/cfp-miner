@@ -3,6 +3,7 @@ package org.kramerlab.cfpminer.weka;
 import java.awt.Dimension;
 import java.io.File;
 import java.io.FileReader;
+import java.io.FilenameFilter;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -13,6 +14,7 @@ import java.util.List;
 import javax.swing.JScrollPane;
 
 import org.jfree.chart.ChartPanel;
+import org.kramerlab.cfpminer.CFPMiner;
 import org.mg.javalib.datamining.Result;
 import org.mg.javalib.datamining.ResultSet;
 import org.mg.javalib.datamining.ResultSetBoxPlot;
@@ -305,6 +307,45 @@ public class ValidationResultsProvider
 			}
 		});
 		return test;
+	}
+
+	public static final String RESULTS_FOLDER = "/home/martin/workspace/CFPMiner/results_r5_all/";
+	public static final String RESULTS_MERGED_FOLDER = "/home/martin/workspace/CFPMiner/results_r5_all_merged/";
+
+	//    public static final String RESULTS_FOLDER = "/home/martin/workspace/CFPMiner/results_r5_best_no_resample/";
+	//    public static final String RESULTS_MERGED_FOLDER = "/home/martin/workspace/CFPMiner/results_r5_best_no_resample_merged/";
+
+	public static boolean resultsExist(String datasetName, CFPMiner miner, String classifier)
+	{
+		return new File(RESULTS_FOLDER
+				+ CFPMiner.resultFileName(1, miner.getCFPType(), miner.getFeatureSelection(), miner.getHashfoldsize(),
+						classifier, datasetName)).exists();
+	}
+
+	public static String getResultsFile(String datasetName, CFPMiner miner, String classifier)
+	{
+		final String resultFileName = CFPMiner.resultFileName(miner.getCFPType(), miner.getFeatureSelection(),
+				miner.getHashfoldsize(), classifier, datasetName);
+		String dest = RESULTS_MERGED_FOLDER + resultFileName;
+		if (!new File(dest).exists())
+		{
+			try
+			{
+				MergeArffFiles.merge(RESULTS_FOLDER, new FilenameFilter()
+				{
+					@Override
+					public boolean accept(File dir, String name)
+					{
+						return name.contains(resultFileName);
+					}
+				}, dest);
+			}
+			catch (Exception e)
+			{
+				throw new RuntimeException(e);
+			}
+		}
+		return dest;
 	}
 
 	public static void main(String[] args) throws Exception

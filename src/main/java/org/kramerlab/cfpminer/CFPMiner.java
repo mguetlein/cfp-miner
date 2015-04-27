@@ -20,6 +20,7 @@ import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
 import org.apache.commons.cli.Options;
 import org.apache.commons.math3.stat.inference.TestUtils;
+import org.kramerlab.cfpminer.cdk.CDKUtil;
 import org.kramerlab.cfpminer.weka.AttributeCrossvalidator;
 import org.mg.javalib.datamining.ResultSet;
 import org.mg.javalib.util.ArrayUtil;
@@ -91,6 +92,11 @@ public class CFPMiner implements Serializable, AttributeCrossvalidator.Attribute
 				return 0;
 			else
 				throw new IllegalStateException("wtf");
+		}
+
+		public boolean isECFP()
+		{
+			return (this == ecfp0 || this == ecfp2 || this == ecfp4 || this == ecfp6);
 		}
 
 		public String toNiceString()
@@ -175,6 +181,11 @@ public class CFPMiner implements Serializable, AttributeCrossvalidator.Attribute
 	public List<String> getTrainingDataSmiles()
 	{
 		return trainingDataSmiles;
+	}
+
+	public int getHashfoldsize()
+	{
+		return hashfoldsize;
 	}
 
 	public CFPType getCFPType()
@@ -866,6 +877,12 @@ public class CFPMiner implements Serializable, AttributeCrossvalidator.Attribute
 		options.addOption("f", "featureSelection", true, "fold|filt|none");
 		options.addOption("s", "hashfoldsize", true, "default:1024, requires folded=true");
 
+		options.addOption(
+				"x",
+				"no-decoy-resample",
+				false,
+				"if param is given, resampling decoys for ChEMBL and MUV datasets will be disabled (and the same sample will be used for runs>1 as for run 1)");
+
 		if (args.length == 0)
 		{
 			System.err.println(options);
@@ -909,7 +926,10 @@ public class CFPMiner implements Serializable, AttributeCrossvalidator.Attribute
 		if (cmd.hasOption("c"))
 			classifier = cmd.getOptionValue("c");
 
-		CFPDataLoader.Dataset dataset = new CFPDataLoader("data").getDataset(datasetName, run);
+		CFPDataLoader loader = new CFPDataLoader("data");
+		if (cmd.hasOption("x"))
+			loader.setResampleDecoys(false);
+		CFPDataLoader.Dataset dataset = loader.getDataset(datasetName, run);
 		List<String> list = dataset.smiles;
 		List<String> endpointValues = dataset.endpoints;
 		ListUtil.scramble(new Random(1), list, endpointValues);
@@ -929,10 +949,23 @@ public class CFPMiner implements Serializable, AttributeCrossvalidator.Attribute
 		}
 		else
 		{
-			String outfile = "results/" + "r" + String.format("%02d", run) + "_" + type + "_" + featureSelection + "_"
-					+ hashfoldsize + "_" + classifier + "_" + datasetName + ".arff";
+			String outfile = "results/"
+					+ resultFileName(run, type, featureSelection, hashfoldsize, classifier, datasetName);
 			validate(datasetName, run, outfile, new String[] { classifier }, endpointValues, new CFPMiner[] { cfps });
 		}
+	}
+
+	public static String resultFileName(int run, CFPType type, FeatureSelection featureSelection, int hashfoldsize,
+			String classifier, String datasetName)
+	{
+		return "r" + String.format("%02d", run) + "_"
+				+ resultFileName(type, featureSelection, hashfoldsize, classifier, datasetName);
+	}
+
+	public static String resultFileName(CFPType type, FeatureSelection featureSelection, int hashfoldsize,
+			String classifier, String datasetName)
+	{
+		return type + "_" + featureSelection + "_" + hashfoldsize + "_" + classifier + "_" + datasetName + ".arff";
 	}
 
 }

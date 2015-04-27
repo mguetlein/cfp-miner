@@ -1,4 +1,4 @@
-package org.kramerlab.cfpminer;
+package org.kramerlab.cfpminer.cdk;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
