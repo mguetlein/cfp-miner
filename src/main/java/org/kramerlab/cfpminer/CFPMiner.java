@@ -895,7 +895,7 @@ public class CFPMiner implements Serializable, AttributeCrossvalidator.Attribute
 			//				main(("--datasetName " + name + " --classifier RandomForest --featureSelection filter").split(" "));
 			//			}
 
-			args = "--datasetName ChEMBL_100579 --run 2 --classifier RaF --type ecfp6 --featureSelection filt --hashfoldsize 8192"
+			args = "--datasetName CPDBAS_Mutagenicity --run 2 --classifier RaF --type ecfp4 --featureSelection filt --hashfoldsize 1024"
 					.split(" ");
 
 			//ChEMBL_259
@@ -941,11 +941,12 @@ public class CFPMiner implements Serializable, AttributeCrossvalidator.Attribute
 		cfps.mine(list);
 		System.out.println(cfps);
 
-		boolean validate = true;
+		boolean validate = false;
 		if (!validate && featureSelection == FeatureSelection.filt)
 		{
 			cfps.applyFilter();
 			System.out.println(cfps);
+			CFPtoArff.writeTrainingDataset("/tmp/test.arff", cfps, datasetName);
 		}
 		else
 		{

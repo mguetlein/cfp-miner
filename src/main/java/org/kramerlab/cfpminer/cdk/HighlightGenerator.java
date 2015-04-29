@@ -52,7 +52,7 @@ import org.openscience.cdk.renderer.generators.parameter.AbstractGeneratorParame
  */
 public final class HighlightGenerator implements IGenerator<IAtomContainer>
 {
-	public double bondRadiusAdjust = 0.66;
+	public double bondRadiusAdjust = 0.8;
 
 	/** The atom radius on screen. */
 	private final HighlightRadius highlightRadius = new HighlightRadius();

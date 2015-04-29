@@ -9,7 +9,6 @@ import java.awt.image.BufferedImage;
 import java.awt.image.RenderedImage;
 import java.io.File;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 
@@ -19,12 +18,12 @@ import javax.swing.JLabel;
 import javax.swing.JScrollPane;
 import javax.swing.SwingConstants;
 
+import org.kramerlab.cfpminer.cdk.CDKUtil;
 import org.kramerlab.cfpminer.cdk.HighlightGenerator;
 import org.mg.javalib.gui.MultiImageIcon;
 import org.mg.javalib.gui.MultiImageIcon.Layout;
 import org.mg.javalib.gui.MultiImageIcon.Orientation;
 import org.mg.javalib.util.ArrayUtil;
-import org.mg.javalib.util.ColorUtil;
 import org.mg.javalib.util.ImageLoader;
 import org.mg.javalib.util.SwingUtil;
 import org.openscience.cdk.exception.CDKException;
@@ -50,36 +49,33 @@ import com.jgoodies.forms.layout.FormLayout;
 
 public class CFPDepict
 {
-
-	public static void drawToPNG(String pngFile, IAtomContainer mol, int size) throws Exception
+	public static void depictToPNG(String pngFile, IAtomContainer mol, int maxSize) throws Exception
 	{
-		BufferedImage image = draw(mol, size);
+		BufferedImage image = depict(mol, maxSize);
 		ImageIO.write((RenderedImage) image, "PNG", new File(pngFile));
 	}
 
-	public static BufferedImage draw(IAtomContainer mol, int size) throws Exception
+	public static BufferedImage depict(IAtomContainer mol, int maxSize) throws Exception
 	{
 		IAtomContainerSet set = ConnectivityChecker.partitionIntoMolecules(mol);
 		BufferedImage image;
 		if (set.getAtomContainerCount() < 2)
-			image = drawConnected(mol, size);
+			image = depictConnected(mol);
 		else
 		{
 			List<ImageIcon> icons = new ArrayList<ImageIcon>();
 			for (int i = 0; i < set.getAtomContainerCount(); i++)
-				icons.add(new ImageIcon(drawConnected(set.getAtomContainer(i), -1)));
+				icons.add(new ImageIcon(depictConnected(set.getAtomContainer(i))));
 			image = (BufferedImage) new MultiImageIcon(icons, Layout.horizontal, Orientation.center, 2).getImage();
-			if (size != -1)
-				image = (BufferedImage) ImageLoader.getShrinkedImage(new ImageIcon(image), size, size).getImage();
 		}
+		if (maxSize != -1)
+			image = (BufferedImage) ImageLoader.getShrinkedImage(new ImageIcon(image), maxSize, maxSize).getImage();
 		return image;
 	}
 
 	@SuppressWarnings("unchecked")
-	public static BufferedImage drawConnected(IAtomContainer mol, int size) throws CDKException
+	private static BufferedImage depictConnected(IAtomContainer mol) throws CDKException
 	{
-
-		//		IAtomContainer mol = new SmilesParser(SilentChemObjectBuilder.getInstance()).parseSmiles("NCC");
 		StructureDiagramGenerator sdg = new StructureDiagramGenerator();
 		sdg.setMolecule(mol);
 		sdg.generateCoordinates();
@@ -92,23 +88,13 @@ public class CFPDepict
 		generators.add(new BasicAtomGenerator());
 		AtomContainerRenderer renderer = new AtomContainerRenderer(generators, new AWTFontManager());
 
-		int width;
-		int height;
-		if (size == -1)
-		{
-			renderer.setup(mol, new Rectangle(0, 0, 1, 1));
-			Rectangle diagramRectangle = renderer.paint(mol, new AWTDrawVisitor((Graphics2D) new BufferedImage(1, 1,
-					BufferedImage.TYPE_INT_ARGB).getGraphics()));
-			width = (int) (1.5 * (diagramRectangle.getWidth() + diagramRectangle.x));
-			height = (int) (1.5 * (diagramRectangle.getHeight() + diagramRectangle.y));
-			width = Math.max(20, width);
-			height = Math.max(20, height);
-		}
-		else
-		{
-			width = size;
-			height = size;
-		}
+		renderer.setup(mol, new Rectangle(0, 0, 1, 1));
+		Rectangle diagramRectangle = renderer.paint(mol, new AWTDrawVisitor((Graphics2D) new BufferedImage(1, 1,
+				BufferedImage.TYPE_INT_ARGB).getGraphics()));
+		int width = (int) (1.5 * (diagramRectangle.getWidth() + diagramRectangle.x));
+		int height = (int) (1.5 * (diagramRectangle.getHeight() + diagramRectangle.y));
+		width = Math.max(20, width);
+		height = Math.max(20, height);
 
 		Rectangle drawArea = new Rectangle(width, height);
 		renderer.setup(mol, drawArea);
@@ -121,76 +107,76 @@ public class CFPDepict
 		return image;
 	}
 
-	public static void drawFPtoPng(String pngFile, IAtomContainer mol, int atoms[], boolean highlightOutgoingBonds,
-			boolean crop, int size) throws Exception
+	public static void depictMatchToPNG(String pngFile, IAtomContainer mol, Color[] cols, boolean crop, int size)
+			throws Exception
 	{
-		BufferedImage image = drawFP(mol, atoms, highlightOutgoingBonds, crop, size);
+		BufferedImage image = depictMatch(mol, cols, crop, size);
 		ImageIO.write((RenderedImage) image, "PNG", new File(pngFile));
 	}
 
-	public static BufferedImage drawFP(IAtomContainer mol, int atoms[], boolean highlightOutgoingBonds, boolean crop,
-			int size) throws Exception
+	public static void depictMatchToPNG(String pngFile, IAtomContainer mol, int atoms[],
+			boolean highlightOutgoingBonds, Color col, boolean crop, int maxSize) throws Exception
 	{
-		IAtomContainerSet set = ConnectivityChecker.partitionIntoMolecules(mol);
-		BufferedImage image = null;
-		if (set.getAtomContainerCount() < 2)
-			image = drawFPConnected(mol, atoms, highlightOutgoingBonds, crop, size);
-		else
-		{
-			int minAtomIdx = ArrayUtil.getMinMax(atoms)[0];
-			List<ImageIcon> icons = new ArrayList<ImageIcon>();
-			atoms = Arrays.copyOf(atoms, atoms.length);
-			for (int i = 0; i < set.getAtomContainerCount(); i++)
-			{
-				if (minAtomIdx < 0 || minAtomIdx >= set.getAtomContainer(i).getAtomCount())
-				{
-					if (!crop)
-						icons.add(new ImageIcon(draw(set.getAtomContainer(i), -1)));
-				}
-				else
-				{
-					image = drawFPConnected(set.getAtomContainer(i), atoms, highlightOutgoingBonds, crop, crop ? size
-							: -1);
-					icons.add(new ImageIcon(image));
-				}
-				minAtomIdx -= set.getAtomContainer(i).getAtomCount();
-				for (int j = 0; j < atoms.length; j++)
-					atoms[j] -= set.getAtomContainer(i).getAtomCount();
-			}
-			if (!crop)
-			{
-				image = (BufferedImage) new MultiImageIcon(icons, Layout.horizontal, Orientation.center, 2).getImage();
-				if (size != -1)
-					image = (BufferedImage) ImageLoader.getShrinkedImage(new ImageIcon(image), size, size).getImage();
-			}
-		}
-		return image;
+		BufferedImage image = depictMatch(mol, atoms, highlightOutgoingBonds, col, crop, maxSize);
+		ImageIO.write((RenderedImage) image, "PNG", new File(pngFile));
 	}
 
-	@SuppressWarnings("unchecked")
-	public static BufferedImage drawFPConnected(IAtomContainer mol, int atoms[], boolean highlightOutgoingBonds,
+	//	public static BufferedImage depictMatch(IAtomContainer mol, int atoms[], boolean highlightOutgoingBonds, Color col,
+	//			boolean crop, int maxSize) throws Exception
+	//	{
+	//		IAtomContainerSet set = ConnectivityChecker.partitionIntoMolecules(mol);
+	//		BufferedImage image = null;
+	//		if (set.getAtomContainerCount() < 2)
+	//			image = depictMatchConnected(mol, atoms, highlightOutgoingBonds, col, crop, maxSize);
+	//		else
+	//		{
+	//			int minAtomIdx = ArrayUtil.getMinMax(atoms)[0];
+	//			List<ImageIcon> icons = new ArrayList<ImageIcon>();
+	//			atoms = Arrays.copyOf(atoms, atoms.length);
+	//			for (int i = 0; i < set.getAtomContainerCount(); i++)
+	//			{
+	//				if (minAtomIdx < 0 || minAtomIdx >= set.getAtomContainer(i).getAtomCount())
+	//				{
+	//					if (!crop)
+	//						icons.add(new ImageIcon(depict(set.getAtomContainer(i), -1)));
+	//				}
+	//				else
+	//				{
+	//					image = depictMatchConnected(set.getAtomContainer(i), atoms, highlightOutgoingBonds, col, crop,
+	//							crop ? maxSize : -1);
+	//					icons.add(new ImageIcon(image));
+	//				}
+	//				minAtomIdx -= set.getAtomContainer(i).getAtomCount();
+	//				for (int j = 0; j < atoms.length; j++)
+	//					atoms[j] -= set.getAtomContainer(i).getAtomCount();
+	//			}
+	//			if (!crop)
+	//			{
+	//				image = (BufferedImage) new MultiImageIcon(icons, Layout.horizontal, Orientation.center, 2).getImage();
+	//				if (maxSize != -1)
+	//					image = (BufferedImage) ImageLoader.getShrinkedImage(new ImageIcon(image), maxSize, maxSize)
+	//							.getImage();
+	//			}
+	//		}
+	//		return image;
+	//	}
+
+	public static String COLOR_PROP = "colorProp";
+
+	public static BufferedImage depictMatch(IAtomContainer mol, int atoms[], boolean highlightOutgoingBonds, Color col,
 			boolean crop, int size) throws Exception
 	{
 		if (atoms == null || atoms.length == 0)
 			if (crop)
 				throw new IllegalArgumentException();
-		if (crop && size == -1)
-			throw new IllegalArgumentException();
-
-		//		IAtomContainer mol = new SmilesParser(SilentChemObjectBuilder.getInstance()).parseSmiles("NCC");
-		StructureDiagramGenerator sdg = new StructureDiagramGenerator();
-		sdg.setMolecule(mol);
-		sdg.generateCoordinates();
-		mol = sdg.getMolecule();
-		HashMap<IChemObject, Integer> ids = new HashMap<IChemObject, Integer>();
-		IAtomContainer s = new AtomContainer();
+		mol = mol.clone();
+		for (IChemObject c : CDKUtil.getAtomsAndBonds(mol))
+			c.setProperty(COLOR_PROP, null);
 		for (int j = 0; j < mol.getAtomCount(); j++)
 		{
 			if (atoms == null || ArrayUtil.indexOf(atoms, j) == -1)
 				continue;
-			ids.put(mol.getAtom(j), 1);
-			s.addAtom(mol.getAtom(j));
-
+			mol.getAtom(j).setProperty(COLOR_PROP, 0);
 			for (int i = 0; i < mol.getAtomCount(); i++)
 			{
 				if (i == j)
@@ -199,11 +185,84 @@ public class CFPDepict
 					continue;
 				IBond b = mol.getBond(mol.getAtom(j), mol.getAtom(i));
 				if (b != null)
-					ids.put(b, 1);
+					b.setProperty(COLOR_PROP, 0);
 			}
 		}
-		//			else
-		//				System.out.println("n " + mol.getAtom(j).getPoint2d());
+		return depictMatch(mol, new Color[] { col }, crop, size);
+	}
+
+	public static BufferedImage depictMatch(IAtomContainer mol, Color palette[], boolean crop, int size)
+			throws Exception
+	{
+		BufferedImage image = null;
+		IAtomContainerSet set = ConnectivityChecker.partitionIntoMolecules(mol);
+		if (set.getAtomContainerCount() < 2)
+			image = depictMatchConnected(mol, palette, crop, size);
+		else if (crop)
+		{
+			for (int i = 0; i < set.getAtomContainerCount(); i++)
+			{
+				boolean match = false;
+				for (IChemObject c : CDKUtil.getAtomsAndBonds(mol))
+					if (c.getProperty(COLOR_PROP, Integer.class) != null)
+						match = true;
+				if (match)
+				{
+					image = depictMatchConnected(set.getAtomContainer(i), palette, true, size);
+					break;
+				}
+			}
+		}
+		else
+		{
+			List<ImageIcon> icons = new ArrayList<ImageIcon>();
+			for (int i = 0; i < set.getAtomContainerCount(); i++)
+				icons.add(new ImageIcon(depictMatchConnected(set.getAtomContainer(i), palette, crop, crop ? size : -1)));
+			image = (BufferedImage) new MultiImageIcon(icons, Layout.horizontal, Orientation.center, 2).getImage();
+		}
+		if (!crop && size != -1)
+			image = (BufferedImage) ImageLoader.getShrinkedImage(new ImageIcon(image), size, size).getImage();
+		return image;
+	}
+
+	/**
+	 * atoms / bonds must have property {@link COLOR_PROP} assigned
+	 * null -> no highlight
+	 * value (must be integer) -> index in pallete color array
+	 * 
+	 * 
+	 * @param mol
+	 * @param palette
+	 * @param crop
+	 * @param size
+	 * @return
+	 * @throws Exception
+	 */
+	@SuppressWarnings("unchecked")
+	private static BufferedImage depictMatchConnected(IAtomContainer mol, Color palette[], boolean crop, int size)
+			throws Exception
+	{
+		if (crop && size == -1)
+			throw new IllegalArgumentException();
+
+		StructureDiagramGenerator sdg = new StructureDiagramGenerator();
+		sdg.setMolecule(mol);
+		sdg.generateCoordinates();
+		mol = sdg.getMolecule();
+		HashMap<IChemObject, Integer> ids = new HashMap<IChemObject, Integer>();
+		IAtomContainer s = new AtomContainer();
+		for (int j = 0; j < mol.getAtomCount(); j++)
+			if (mol.getAtom(j).getProperty(COLOR_PROP, Integer.class) != null)
+			{
+				ids.put(mol.getAtom(j), mol.getAtom(j).getProperty(COLOR_PROP, Integer.class) + 1);
+				s.addAtom(mol.getAtom(j));
+			}
+			else
+				ids.put(mol.getAtom(j), 0);
+		for (int j = 0; j < mol.getBondCount(); j++)
+			if (mol.getBond(j).getProperty(COLOR_PROP, Integer.class) != null)
+				ids.put(mol.getBond(j), mol.getBond(j).getProperty(COLOR_PROP, Integer.class) + 1);
+
 		mol.setProperty(HighlightGenerator.ID_MAP, ids);
 
 		@SuppressWarnings("rawtypes")
@@ -215,7 +274,7 @@ public class CFPDepict
 		AtomContainerRenderer renderer = new AtomContainerRenderer(generators, new AWTFontManager());
 
 		renderer.getRenderer2DModel().set(HighlightGenerator.HighlightPalette.class,
-				HighlightGenerator.createPalette(null, ColorUtil.transparent(Color.RED, 150)));
+				HighlightGenerator.createPalette(null, palette));
 		renderer.getRenderer2DModel().set(HighlightGenerator.HighlightRadius.class, 12.5);
 
 		// determine preferred size of molecule
@@ -331,11 +390,11 @@ public class CFPDepict
 		//					b.append(getLabel(img, smiles + " size:" + size));
 		//				}
 		//			}
-		//			SwingUtil.showInFrame(b.getPanel());
+		//			SwingUtil.showInFrame(new JScrollPane(b.getPanel()));
 		//		}
 		{
 			DefaultFormBuilder b = new DefaultFormBuilder(new FormLayout("p"));
-			int atoms[] = new int[] { 1, 2, 3 };
+			int atoms[] = new int[] { 2, 3, 4 };
 			for (Integer size : new Integer[] { 75, -1 })
 			{
 				for (boolean crop : new boolean[] { true, false })
@@ -349,10 +408,10 @@ public class CFPDepict
 						for (boolean bonds : new boolean[] { true, false })
 						{
 
-							BufferedImage img = drawFP(
+							BufferedImage img = depictMatch(
 									new SmilesParser(SilentChemObjectBuilder.getInstance()).parseSmiles(smiles), atoms,
-									bonds, crop, size);
-							b.append(getLabel(img, smiles + " crop:" + crop + " size:" + size));
+									bonds, Color.RED, crop, size);
+							b.append(getLabel(img, smiles + " crop:" + crop + " size:" + size + " bonds:" + bonds));
 						}
 					}
 				}
@@ -367,4 +426,5 @@ public class CFPDepict
 	{
 		demo();
 	}
+
 }

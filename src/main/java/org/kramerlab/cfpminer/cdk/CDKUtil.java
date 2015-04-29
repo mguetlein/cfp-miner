@@ -2,6 +2,7 @@ package org.kramerlab.cfpminer.cdk;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 
@@ -20,6 +21,16 @@ import org.openscience.cdk.tools.manipulator.ChemFileManipulator;
 
 public class CDKUtil
 {
+	public static List<IChemObject> getAtomsAndBonds(IAtomContainer mol)
+	{
+		List<IChemObject> l = new ArrayList<>();
+		for (int i = 0; i < mol.getAtomCount(); i++)
+			l.add(mol.getAtom(i));
+		for (int i = 0; i < mol.getBondCount(); i++)
+			l.add(mol.getBond(i));
+		return l;
+	}
+
 	public static String toSmiles(IAtomContainer mol) throws CDKException
 	{
 		return new SmilesGenerator().create(mol);
@@ -37,7 +48,7 @@ public class CDKUtil
 
 	private static HashMap<String, IAtomContainer> smilesToMol = new HashMap<String, IAtomContainer>();
 
-	public static IAtomContainer parseSmiles(String smiles) throws InvalidSmilesException
+	public static synchronized IAtomContainer parseSmiles(String smiles) throws InvalidSmilesException
 	{
 		if (!smilesToMol.containsKey(smiles))
 			smilesToMol.put(smiles, new SmilesParser(SilentChemObjectBuilder.getInstance()).parseSmiles(smiles));
