@@ -93,6 +93,7 @@ public class CFPDataLoader
 	}
 
 	public static String BALANCED_DATASETS = "Balanced";
+	public static String VS_DATASETS = "Virtual-Screening";
 	private static HashMap<String, String> datasetCategory = new HashMap<>();
 	private static HashMap<String, String> datasetSubCategory = new HashMap<>();
 	private static HashMap<String, String> sdfDatasets = new HashMap<>();
@@ -154,7 +155,7 @@ public class CFPDataLoader
 				datasetActivityDesc.put(n, "vascular endothelial growth factor receptor");
 			else
 				throw new IllegalArgumentException();
-			datasetCategory.put(n, "DUD");
+			datasetCategory.put(n, VS_DATASETS);
 			datasetSubCategory.put(n, "DUD");
 		}
 
@@ -168,7 +169,7 @@ public class CFPDataLoader
 			addDatasetCitation(n, "Riniker_Heterogeneous_2013", "http://pubs.acs.org/doi/abs/10.1021/ci400466r");
 			addDatasetWeblink(n, "Benchmarking-Platform", "https://github.com/rdkit/benchmarking_platform",
 					"Benchmarking Platform");
-			datasetCategory.put(n, "ChEMBL");
+			datasetCategory.put(n, VS_DATASETS);
 			datasetSubCategory.put(n, "ChEMBL");
 		}
 		datasetActivityDesc.put("ChEMBL_" + 101174,
@@ -292,7 +293,7 @@ public class CFPDataLoader
 			addDatasetCitation(n, "Riniker_Heterogeneous_2013", "http://pubs.acs.org/doi/abs/10.1021/ci400466r");
 			addDatasetWeblink(n, "Benchmarking-Platform", "https://github.com/rdkit/benchmarking_platform",
 					"Benchmarking Platform");
-			datasetCategory.put(n, "MUV");
+			datasetCategory.put(n, VS_DATASETS);
 			datasetSubCategory.put(n, "MUV");
 		}
 		datasetActivityDesc.put("MUV_" + 466, "S1P1 rec. (GPCR) Agonist");
@@ -406,7 +407,7 @@ public class CFPDataLoader
 		int idx = 0;
 		for (String n : name)
 		{
-			//			set.setResultValue(idx, "category", datasetCategory.get(n));
+			set.setResultValue(idx, "category", datasetCategory.get(n));
 			set.setResultValue(idx, "subCategory", datasetSubCategory.get(n));
 			set.setResultValue(idx, "numDatasets", "1");
 			idx++;
@@ -436,8 +437,8 @@ public class CFPDataLoader
 			//						set.getResultValue(i, "category") + " -- " + set.getResultValue(i, "subCategory"));
 		}
 		//		set.removePropery("subCategory");
-		set.setNicePropery("category", "dataset-group");
-		set.setNicePropery("subCategory", "dataset");
+		set.setNicePropery("category", "type");
+		set.setNicePropery("subCategory", "dataset/group");
 		set.setNicePropery("numDatasets", "num");
 		set.setNicePropery("size", "compounds");
 		//		System.out.println(set.toNiceString());
@@ -561,8 +562,12 @@ public class CFPDataLoader
 	public static void main(String[] args)
 	{
 		CFPDataLoader d = new CFPDataLoader("data");
-		d.getInfo("NCTRER", "CPDBAS_Rat", "ChEMBL_61", "DUD_vegfr2", "DUD_hivrt", "DUD_cdk2", "MUV_644", "MUV_713",
-				"MUV_859", "AMES");
+		//		d.getInfo("NCTRER", "CPDBAS_Rat", "ChEMBL_61", "DUD_vegfr2", "DUD_hivrt", "DUD_cdk2", "MUV_644", "MUV_713",
+		//				"MUV_859", "AMES");
+		String data[] = d.allDatasets();
+		Arrays.sort(data, CFPDataComparator);
+		System.out.println(ArrayUtil.toString(data));
+
 	}
 
 	public static String[] getClassValues(List<String> endpoints)
@@ -612,4 +617,14 @@ public class CFPDataLoader
 				datasets.add(s);
 		return datasets;
 	}
+
+	public static Set<String> listSubCategoryDatasets(String category)
+	{
+		HashSet<String> datasets = new HashSet<>();
+		for (String s : datasetSubCategory.keySet())
+			if (datasetSubCategory.get(s).equals(category))
+				datasets.add(s);
+		return datasets;
+	}
+
 }

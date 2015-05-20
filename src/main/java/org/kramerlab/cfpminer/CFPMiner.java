@@ -101,7 +101,7 @@ public class CFPMiner implements Serializable, AttributeCrossvalidator.Attribute
 
 		public String toNiceString()
 		{
-			return this.toString().toUpperCase();
+			return this.toString();//.toUpperCase();
 		}
 	}
 
@@ -131,6 +131,20 @@ public class CFPMiner implements Serializable, AttributeCrossvalidator.Attribute
 					return "Filtered";
 				case fold:
 					return "Folded";
+				case none:
+					return "All";
+			}
+			throw new IllegalStateException();
+		}
+
+		public Object toNiceShortString()
+		{
+			switch (this)
+			{
+				case filt:
+					return "Filt.";
+				case fold:
+					return "Fold.";
 				case none:
 					return "All";
 			}
@@ -502,39 +516,51 @@ public class CFPMiner implements Serializable, AttributeCrossvalidator.Attribute
 		int maxNumRemove = hashCodeToCompound.size() - hashfoldsize;
 
 		LinkedHashMap<Integer, Set<Integer>> hashCodeToCompoundSubset = new LinkedHashMap<>();
+		LinkedHashMap<Integer, List<Integer>> hashCodesWidthSimilarSubsets = new LinkedHashMap<>();
 		for (Integer h : hashCodeToCompound.keySet())
 		{
 			@SuppressWarnings("unchecked")
 			Set<Integer> hCompounds = (Set<Integer>) hashCodeToCompound.get(h).clone();
 			hCompounds.retainAll(compoundSubset);
 			hashCodeToCompoundSubset.put(h, hCompounds);
+
+			int eq = hCompounds.hashCode();
+			if (!hashCodesWidthSimilarSubsets.containsKey(eq))
+				hashCodesWidthSimilarSubsets.put(eq, new ArrayList<Integer>());
+			hashCodesWidthSimilarSubsets.get(eq).add(h);
 		}
 
 		if (hashcodeList == null)
 			getHashcodeViaIdx(0);
 		Set<Integer> hashCodesToRemove = new HashSet<>();
-		for (int i = 0; i < hashcodeList.length - 1; i++)
-		{
-			Integer h1 = hashcodeList[i];
-			if (hashCodesToRemove.contains(h1))
-				continue;
 
-			for (int j = i + 1; j < hashcodeList.length; j++)
+		for (List<Integer> hashcodeSet : hashCodesWidthSimilarSubsets.values())
+		{
+			for (int i = 0; i < hashcodeSet.size() - 1; i++)
 			{
-				Integer h2 = hashcodeList[j];
-				if (hashCodesToRemove.contains(h2))
+				Integer h1 = hashcodeSet.get(i);
+				if (hashCodesToRemove.contains(h1))
 					continue;
 
-				if (hashCodeToCompoundSubset.get(h1).equals(hashCodeToCompoundSubset.get(h2)))
+				for (int j = i + 1; j < hashcodeSet.size(); j++)
 				{
-					Integer obsolete = getNonClosed(h1, h2, hashCodeToCompoundSubset.get(h1));
-					if (obsolete != null)
+					Integer h2 = hashcodeSet.get(j);
+					if (hashCodesToRemove.contains(h2))
+						continue;
+
+					if (hashCodeToCompoundSubset.get(h1).equals(hashCodeToCompoundSubset.get(h2)))
 					{
-						hashCodesToRemove.add(obsolete);
-						if (hashCodesToRemove.size() >= maxNumRemove || obsolete == h1)
-							break;
+						Integer obsolete = getNonClosed(h1, h2, hashCodeToCompoundSubset.get(h1));
+						if (obsolete != null)
+						{
+							hashCodesToRemove.add(obsolete);
+							if (hashCodesToRemove.size() >= maxNumRemove || obsolete == h1)
+								break;
+						}
 					}
 				}
+				if (hashCodesToRemove.size() >= maxNumRemove)
+					break;
 			}
 			if (hashCodesToRemove.size() >= maxNumRemove)
 				break;
@@ -809,7 +835,6 @@ public class CFPMiner implements Serializable, AttributeCrossvalidator.Attribute
 		applyMinFreq(filterSubset, absMinFreq);
 
 		minePairs(filterSubset);
-
 		applyClosedSetFilter(filterSubset);
 
 		applyChiSquareFilter(filterSubset);
@@ -873,7 +898,7 @@ public class CFPMiner implements Serializable, AttributeCrossvalidator.Attribute
 		options.addOption("r", "run", true, "cv run");
 		options.addOption("t", "type", true, "ecfp|fcfp");
 
-		options.addOption("c", "classifier", true, "RaF|SMO");
+		options.addOption("c", "classifier", true, "RaF|SMO|NBy|Ens|RnF");
 		options.addOption("f", "featureSelection", true, "fold|filt|none");
 		options.addOption("s", "hashfoldsize", true, "default:1024, requires folded=true");
 
@@ -888,6 +913,7 @@ public class CFPMiner implements Serializable, AttributeCrossvalidator.Attribute
 			System.err.println(options);
 			System.exit(1);
 		}
+		boolean validate = true;
 		if (args.length > 0 && args[0].equals("debug"))
 		{
 			//			for (String name : names)
@@ -895,10 +921,15 @@ public class CFPMiner implements Serializable, AttributeCrossvalidator.Attribute
 			//				main(("--datasetName " + name + " --classifier RandomForest --featureSelection filter").split(" "));
 			//			}
 
-			args = "--datasetName CPDBAS_Mutagenicity --run 2 --classifier RaF --type ecfp4 --featureSelection filt --hashfoldsize 1024"
+			// ChEMBL_10188
+			// ChEMBL_259
+			// DUD_vegfr2
+			// CPDBAS_Mutagenicity
+			// AMES
+			args = "--datasetName ChEMBL_259 --run 2 --classifier Ens --type ecfp4 --featureSelection filt --hashfoldsize 1024"
 					.split(" ");
-
-			//ChEMBL_259
+			validate = true;
+			//
 			//			args = "--datasetName DUD_vegfr2 --classifier RandomForest --folded false --pValueThreshold 0.05,0.1"
 			//					.split(" ");
 			//			args = "--datasetName ChEMBL_10188 --classifier RandomForest --featureSelection filter".split(" ");
@@ -919,12 +950,15 @@ public class CFPMiner implements Serializable, AttributeCrossvalidator.Attribute
 		FeatureSelection featureSelection = FeatureSelection.filt;
 		if (cmd.hasOption("f"))
 			featureSelection = FeatureSelection.valueOf(cmd.getOptionValue("f"));
-		int hashfoldsize = 1024;
+		int hashfoldsize = 0;
 		if (cmd.hasOption("s"))
 			hashfoldsize = Integer.parseInt(cmd.getOptionValue("s"));
-		String classifier = "RaF";
+		String classifier = "RnF";
 		if (cmd.hasOption("c"))
 			classifier = cmd.getOptionValue("c");
+
+		if (hashfoldsize < 512 && featureSelection != FeatureSelection.none)
+			throw new IllegalArgumentException("please set hashfoldsize");
 
 		CFPDataLoader loader = new CFPDataLoader("data");
 		if (cmd.hasOption("x"))
@@ -941,18 +975,17 @@ public class CFPMiner implements Serializable, AttributeCrossvalidator.Attribute
 		cfps.mine(list);
 		System.out.println(cfps);
 
-		boolean validate = false;
-		if (!validate && featureSelection == FeatureSelection.filt)
-		{
-			cfps.applyFilter();
-			System.out.println(cfps);
-			CFPtoArff.writeTrainingDataset("/tmp/test.arff", cfps, datasetName);
-		}
-		else
+		if (validate)
 		{
 			String outfile = "results/"
 					+ resultFileName(run, type, featureSelection, hashfoldsize, classifier, datasetName);
 			validate(datasetName, run, outfile, new String[] { classifier }, endpointValues, new CFPMiner[] { cfps });
+		}
+		else if (featureSelection == FeatureSelection.filt)
+		{
+			cfps.applyFilter();
+			System.out.println(cfps);
+			CFPtoArff.writeTrainingDataset("/tmp/test.arff", cfps, datasetName);
 		}
 	}
 

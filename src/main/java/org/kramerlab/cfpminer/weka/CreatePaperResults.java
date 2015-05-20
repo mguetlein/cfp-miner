@@ -1,6 +1,7 @@
 package org.kramerlab.cfpminer.weka;
 
 import java.awt.Dimension;
+import java.awt.Window;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FilenameFilter;
@@ -20,6 +21,7 @@ import org.kramerlab.cfpminer.CFPDataLoader;
 import org.kramerlab.cfpminer.CFPMiner;
 import org.kramerlab.cfpminer.CFPMiner.CFPType;
 import org.kramerlab.cfpminer.CFPMiner.FeatureSelection;
+import org.kramerlab.cfpminer.CFPUtil;
 import org.mg.javalib.datamining.Result;
 import org.mg.javalib.datamining.ResultSet;
 import org.mg.javalib.datamining.ResultSetBoxPlot;
@@ -31,30 +33,66 @@ import org.mg.javalib.util.ArrayUtil;
 import org.mg.javalib.util.DoubleKeyHashMap;
 import org.mg.javalib.util.FileUtil;
 import org.mg.javalib.util.ListUtil;
+import org.mg.javalib.util.ObjectUtil;
+import org.mg.javalib.util.StringUtil;
 import org.mg.javalib.util.SwingUtil;
 import org.mg.javalib.weka.MergeArffFiles;
 
 public class CreatePaperResults
 {
+
 	public void paper() throws Exception
 	{
+		ALGORITHMS = new String[] { "SMO" };
+
+		//		DATASETS = ArrayUtil.toArray(CFPDataLoader.listCategoryDatasets(CFPDataLoader.BALANCED_DATASETS));
+		//		DATASETS = ArrayUtil.toArray(CFPDataLoader.listCategoryDatasets(CFPDataLoader.VS_DATASETS));
+		//		DATASETS = ArrayUtil.toArray(CFPDataLoader.listSubCategoryDatasets("ChEMBL"));
+		//		ArrayUtil.scramble(DATASETS, new Random(3));
+
 		write = true;
 		showCharts = true;
 
 		//tableCollisions(false);
-		//ranking("");
+		//ranking("", "AUP");
 		//datasets();
 
-		ALGORITHMS = new String[] { "RaF" };
-		read("filt");
-		best();
-
-		//		read("ecfp4_1024");
+		//		read("ecfp4");
+		//		filterMethods("AllOr1024", true, "1024", "none");
+		//		addRuntimes();
 		//		lineChart();
+		//		ValidationResultsProvider.setPerformanceMeasures(new String[] { "AUP" });
+		//		setParamsStr();
+		//		lineChart();
+
+		ValidationResultsProvider.setPerformanceMeasures(new String[] { "AUC", "AUP" });
+
+		//		String size = "1024";
+		//		read("ecfp4");
+		//		filterMethods("AllOrFold" + size, true, "fold_" + size, "none");
+		//		diffChart();
+		//		read("ecfp4");
+		//		filterMethods("AllOrFilt" + size, true, "filt_" + size, "none");
+		//		diffChart();
+		//		read("ecfp4_" + size);
 		//		diffChart();
 
+		//		String size = "1024";
 		//		read("ecfp4");
-		//		tableWinLoss("FiltVsFold", WinLossCompareAgainst.sameSize, "filt", "fold");
+		//		filterMethods(size + "orAll", true, size, "none");
+		//		tableWinLoss("FiltVsFoldVsAll_" + size, WinLossCompareAgainst.all, "filt", "fold", "none");
+
+		String size = "1024";
+		read("ecfp");
+		filterMethods(size + "orAll", true, size, "none");
+		for (String alg : ALGORITHMS)
+			remove_obs_sizes(alg);
+		tableWinLoss("FiltVsFoldVsAll_" + size, WinLossCompareAgainst.sameDiameter, "filt", "fold", "none");
+
+		//		estimateBest2("AUP");
+		//		renameMethods(ALL_ALGS);
+		//		tableWinLoss("RF-SMO-RF", WinLossCompareAgainst.all, "RnF", "SMO", "NBy");
+		//		lineChart();
 
 		//		for (final String type : new String[] { "ecfp", "fcfp" })
 		//			for (final String typeSize : new String[] { "6", "4", "2", "0" })
@@ -87,19 +125,36 @@ public class CreatePaperResults
 	}
 
 	static double SIG_LEVEL = 0.05;
+	static double SIG_LEVEL_RELAXED = 0.1;
 	static Double TEST_CORRECTION = 1 / 9.0;
 	static String[] SIZES = { "1024", "2048", "4096", "8192" };
-	static String[] ALGORITHMS = new String[] { "RaF", "SMO" };
+	static String ALL_ALGS = "AllAlgs";
+	static final HashMap<String, String> WEKA_ALGORITHM_NAMES = new HashMap<>();
+	{
+		WEKA_ALGORITHM_NAMES.put("RandomForest", "RaF");
+		WEKA_ALGORITHM_NAMES.put("RandomFores2", "RnF");
+		WEKA_ALGORITHM_NAMES.put("SMO", "SMO");
+		WEKA_ALGORITHM_NAMES.put("NaiveBayes", "NBy");
+		WEKA_ALGORITHM_NAMES.put("Vote", "Ens");
+	}
+	static String[] ORIG_ALGORITHMS = new String[] { "NBy", "RnF", "SMO" }; //, "Ens" };
+	static String[] ORIG_ALGORITHMS_NICE = new String[ORIG_ALGORITHMS.length];
+	static String[] ALGORITHMS = ORIG_ALGORITHMS;
+	static String[] ALL_DATASETS = new CFPDataLoader("data").allDatasets();
+	static String[] DATASETS = ALL_DATASETS;
+	static String[] ALL_PERFORMANCE_MEASURES = ValidationResultsProvider.performanceMeasures;
 
 	static HashMap<String, String> niceValues = new HashMap<>();
 	static HashMap<String, String> niceValuesShort = new HashMap<>();
 	static
 	{
 		niceValues.put("hashfoldSize", "Num bits");
-		niceValues.put("FeatureSelection", "Method");
+		niceValues.put("FeatureSelection", "Feature selection");
 		niceValues.put("CFPType", "Fingerprint");
 		niceValues.put("RaF", "Random forests");
+		niceValues.put("RnF", "Random forests");
 		niceValues.put("SMO", "Support vector machines");
+		niceValues.put("NBy", "Naive Bayes");
 		for (FeatureSelection f : FeatureSelection.values())
 			if (!f.toString().equals(f.toNiceString()))
 				niceValues.put(f.toString(), f.toNiceString());
@@ -109,24 +164,86 @@ public class CreatePaperResults
 		for (String k : niceValues.keySet())
 			niceValuesShort.put(k, niceValues.get(k));
 		niceValuesShort.put("RaF", "RF");
+		niceValuesShort.put("RnF", "RF");
 		niceValuesShort.put("SMO", "SMV");
+		niceValuesShort.put("NBy", "NB");
 		niceValuesShort.put("CFPType", "FP");
+		niceValuesShort.put("hashfoldSize", "Size");
+		niceValuesShort.put("FeatureSelection", "FS");
 
+		for (int i = 0; i < ORIG_ALGORITHMS.length; i++)
+			ORIG_ALGORITHMS_NICE[i] = niceValues.get(ORIG_ALGORITHMS[i]);
 		//ValidationResultsProvider.setPerformanceMeasures(new String[] { "Accuracy" });
 	}
 	static String destFolder = "/home/martin/documents/ecfps/latex/results/";
 
-	String params;
-	String paramsStr;
+	String params = "";
+	String paramsStr = "";
+	String filterName = "";
 	//ValidationResultsProvider res;
 
 	LinkedHashMap<String, ResultSet> algResults = new LinkedHashMap<>();
 	boolean write = false;
 	boolean showCharts = true;
 
+	public void filterMethods(String filterName, final boolean include, final String... pattern)
+	{
+		this.filterName = "_" + filterName;
+		for (String alg : ALGORITHMS)
+		{
+			algResults.put(alg, algResults.get(alg).filter(new ResultSetFilter()
+			{
+				@Override
+				public boolean accept(Result result)
+				{
+					boolean match = false;
+					for (String p : pattern)
+						if (result.getValue("Method").toString().contains(p))
+						{
+							match = true;
+							break;
+						}
+					if (include)
+						return match;
+					else
+						return !match;
+				}
+			}));
+		}
+	}
+
+	public void addRuntimes()
+	{
+		ValidationResultsProvider.setPerformanceMeasures(ArrayUtil.push(ValidationResultsProvider.performanceMeasures,
+				"Time"));
+		for (String alg : ALGORITHMS)
+		{
+			ResultSet r = algResults.get(alg);
+			for (int i = 0; i < r.getNumResults(); i++)
+			{
+				String d = r.getResultValue(i, "Dataset").toString();
+				String m = r.getResultValue(i, "Method").toString();
+				CFPType t = fpFromMethod(m);
+				FeatureSelection f = featFromMethod(m);
+				int s = (f == FeatureSelection.none) ? 0 : Integer.parseInt(sizeFromMethod(m));
+				double run = CFPUtil.getRuntime(d, t, f, s, alg, true);
+				r.setResultValue(i, "Time", run);// 5 + new Random().nextDouble() * 20.0);
+			}
+		}
+	}
+
 	public void read(String params) throws Exception
 	{
 		read(ALGORITHMS, params);
+	}
+
+	private void setParamsStr()
+	{
+		paramsStr = params.isEmpty() ? "" : ("_" + params);
+		if (DATASETS.length < ALL_DATASETS.length)
+			paramsStr += "_d" + DATASETS.length;
+		if (ValidationResultsProvider.performanceMeasures.length < ALL_PERFORMANCE_MEASURES.length)
+			paramsStr += "_m" + ValidationResultsProvider.performanceMeasures.length;
 	}
 
 	public void read(String algs[], String params) throws Exception
@@ -134,13 +251,21 @@ public class CreatePaperResults
 		for (String alg : algs)
 		{
 			this.params = params;
-			paramsStr = params.length() > 0 ? ("_" + params) : "";
-			String name = alg + paramsStr;
+			setParamsStr();
+			filterName = "";
+			String name = alg + (params.isEmpty() ? "" : ("_" + params));
 			System.out.println("reading " + name);
 			ValidationResultsProvider valRes = new ValidationResultsProvider(
 					ValidationResultsProvider.RESULTS_MERGED_FOLDER + name + ".arff");
+			valRes.results = valRes.results.filter(new ResultSetFilter()
+			{
+				@Override
+				public boolean accept(Result result)
+				{
+					return ArrayUtil.indexOf(DATASETS, result.getValue("Dataset").toString()) != -1;
+				}
+			});
 			System.out.println("done");
-
 			algResults.put(alg, valRes.results);
 		}
 	}
@@ -183,8 +308,11 @@ public class CreatePaperResults
 	{
 		if (alg != null)
 		{
-			method = method.replace("RandomForest ", "");
-			method = method.replace("SMO ", "");
+			if (alg.equals(ALL_ALGS))
+				return algFromMethod(method);
+			//				return niceValues.get(algFromMethod(method));
+			for (String w : WEKA_ALGORITHM_NAMES.keySet())
+				method = method.replace(w + " ", "");
 		}
 		if (params != null)
 		{
@@ -264,7 +392,9 @@ public class CreatePaperResults
 			merge(alg, "CPDBAS_Rat", null);
 
 			merge(alg, "1024", null);
+			merge(alg, "ecfp", null);
 			merge(alg, "ecfp4", "1024");
+			merge(alg, "ecfp4", "2048");
 
 			merge(alg, CFPDataLoader.BALANCED_DATASETS, null);
 			merge(alg, "MUV", null);
@@ -306,15 +436,21 @@ public class CreatePaperResults
 		}
 	}
 
-	// for ecfp0 fcfp0 fcfp2
-	//  delete "filt <fp> 2048/4096/8192"
-	//  rename "filt <fp> 1024" to "all <fp> ''"
+	public boolean skipFiltFoldMethod(CFPType type, int size)
+	{
+		if (type == CFPType.ecfp0 || type == CFPType.fcfp0 || type == CFPType.fcfp2)
+			return true;
+		if (type == CFPType.ecfp2)
+			return size > 1024;
+		if (type == CFPType.fcfp4)
+			return size > 4096;
+		return false;
+	}
 
-	// delete "filt ecfp2 2048/4096"
-	// rename "filt ecfp2 8192" to "all ecfp2 ''"
-
-	// rename "filt fcfp4 8192" to "all fcfp4"
-	public void convert_low(String alg)
+	// delete ecfp0/fcfp0/fcfp2 1024/2048/4096/8192
+	// delete ecfp2 2048/4096/8192
+	// delete fcfp4 8192
+	public void remove_obs_sizes(String alg)
 	{
 		ResultSet results = algResults.get(alg);
 		results = results.filter(new ResultSetFilter()
@@ -323,38 +459,32 @@ public class CreatePaperResults
 			public boolean accept(Result result)
 			{
 				String m = result.getValue("Method").toString();
-				if (m.contains("_filt_"))
-				{
-					if (m.contains("ecfp0") || m.contains("fcfp0") || m.contains("fcfp2"))
-						return m.contains("1024");
-					if (m.contains("ecfp2"))
-						return m.contains("1024") || m.contains("8192");
+				if (m.contains("_none"))
 					return true;
-				}
-				else if (m.contains("_fold_"))
+				else if (m.contains("_filt_") || m.contains("_fold_"))
 				{
-					if (m.contains("ecfp0") || m.contains("fcfp0"))
-						return m.contains("1024");
-					return true;
+					CFPType type = fpFromMethod(m);
+					int size = Integer.parseInt(sizeFromMethod(m));
+					return !skipFiltFoldMethod(type, size);
 				}
 				else
-					throw new IllegalArgumentException();
+					throw new IllegalArgumentException(m);
 			}
 		});
-		for (int i = 0; i < results.getNumResults(); i++)
-		{
-			String m = results.getResultValue(i, "Method").toString();
-			if (m.contains("ecfp0_filt_1024"))
-				results.setResultValue(i, "Method", m.replace("ecfp0_filt_1024", "ecfp0_" + FeatureSelection.none));
-			if (m.contains("fcfp0_filt_1024"))
-				results.setResultValue(i, "Method", m.replace("fcfp0_filt_1024", "fcfp0_" + FeatureSelection.none));
-			if (m.contains("fcfp2_filt_1024"))
-				results.setResultValue(i, "Method", m.replace("fcfp2_filt_1024", "fcfp2_" + FeatureSelection.none));
-			if (m.contains("ecfp2_filt_8192"))
-				results.setResultValue(i, "Method", m.replace("ecfp2_filt_8192", "ecfp2_" + FeatureSelection.none));
-			if (m.contains("fcfp4_filt_8192"))
-				results.setResultValue(i, "Method", m.replace("fcfp4_filt_8192", "fcfp4_" + FeatureSelection.none));
-		}
+		//		for (int i = 0; i < results.getNumResults(); i++)
+		//		{
+		//			String m = results.getResultValue(i, "Method").toString();
+		//			if (m.contains("ecfp0_filt_1024"))
+		//				results.setResultValue(i, "Method", m.replace("ecfp0_filt_1024", "ecfp0_" + FeatureSelection.none));
+		//			if (m.contains("fcfp0_filt_1024"))
+		//				results.setResultValue(i, "Method", m.replace("fcfp0_filt_1024", "fcfp0_" + FeatureSelection.none));
+		//			if (m.contains("fcfp2_filt_1024"))
+		//				results.setResultValue(i, "Method", m.replace("fcfp2_filt_1024", "fcfp2_" + FeatureSelection.none));
+		//			if (m.contains("ecfp2_filt_8192"))
+		//				results.setResultValue(i, "Method", m.replace("ecfp2_filt_8192", "ecfp2_" + FeatureSelection.none));
+		//			if (m.contains("fcfp4_filt_8192"))
+		//				results.setResultValue(i, "Method", m.replace("fcfp4_filt_8192", "fcfp4_" + FeatureSelection.none));
+		//		}
 		algResults.put(alg, results);
 	}
 
@@ -390,108 +520,595 @@ public class CreatePaperResults
 			{
 				String dest = destFolder + "datasets_overview.tex";
 				System.out.println("write table to " + dest);
-				FileUtil.writeStringToFile(dest, r.toLatexTable(null, null, null));
+				FileUtil.writeStringToFile(dest, r.toLatexTable());
 			}
 		}
 	}
 
-	public void best() throws Exception
+	/** leaves only a single method per algorithm and dataset in algResutls */
+	public void estimateBest2(final String measure) throws Exception
 	{
-		StringBuffer rerunScript = new StringBuffer();
-		rerunScript.append("#!/bin/bash\n");
-		rerunScript.append("module load Java/jdk1.8.0_25\n");
-
-		String alg = "RaF";
-		ResultSet best = new ResultSet();
-		//        System.out.println(algResults.get(alg).toNiceString());
-		for (final String dataset : new CFPDataLoader("data").allDatasets())
+		int algCount = 1;
+		for (String alg : ALGORITHMS)
 		{
-			ResultSet r = algResults.get(alg).filter(new ResultSetFilter()
+			System.out.println(alg);
+
+			File f = new File(ValidationResultsProvider.RESULTS_MERGED_FOLDER + alg + "." + measure + ".d"
+					+ DATASETS.length + ".best");
+			if (false && f.exists())
 			{
-				@Override
-				public boolean accept(Result result)
-				{
-					return result.getValue("Dataset").equals(dataset);
-				}
-			});
-			r = r.join(new String[] { "Method", "Dataset" }, new String[] { "Run", "Fold" }, null);
-
-			r.sortResults("Method", new Comparator<Object>()
-			{
-				@Override
-				public int compare(Object o1, Object o2)
-				{
-					String method = o1.toString();
-					String method2 = o2.toString();
-					String size = sizeFromMethod(method);
-					String size2 = sizeFromMethod(method2);
-					if (!size.equals(size2))
-						return new Integer(size).compareTo(new Integer(size2));
-					return 0;
-					//                                CFPType type = fpFromMethod(method);
-					//                                CFPType type2 = fpFromMethod(method2);
-					//                                if (type.getDiameter() != type2.getDiameter())
-					//                                    return new Integer(type.getDiameter()).compareTo(new Integer(type.getDiameter()));
-					//                                if (type != type2)
-				}
-			});
-			r.sortResults("Features", !dataset.equals("AMES"));
-			r.sortResults("AUC", false);
-
-			if (r.getResultValue(0, "AUC").equals(r.getResultValue(1, "AUC"))
-					&& r.getResultValue(0, "Features").equals(r.getResultValue(1, "Features"))
-					&& sizeFromMethod(r.getResultValue(0, "Method").toString()).equals(
-							sizeFromMethod(r.getResultValue(1, "Method").toString())))
-				throw new Error("equal: auc && #features && size:\n" + r.toNiceString());
-
-			System.out.println(dataset);
-			System.out.println(r.getResultValue(0, "Method"));
-			//            System.out.println(r.toNiceString());
-			System.out.println();
-
-			int idx = best.addResult();
-			best.setResultValue(idx, "Dataset", dataset);
-			CFPType type = fpFromMethod(r.getResultValue(0, "Method").toString());
-			int size = Integer.valueOf(sizeFromMethod(r.getResultValue(0, "Method").toString()));
-			best.setResultValue(idx, "type", type);
-			best.setResultValue(idx, "hashfoldsize", size);
-
-			if (dataset.startsWith("ChEMBL") || dataset.startsWith("MUV"))
-			{
-				for (int run = 1; run <= 5; run++)
-				{
-					String resFile = CFPMiner.resultFileName(run, type, FeatureSelection.filt, size, alg, dataset);
-					String outFile = resFile.replace(".arff", ".output");
-					rerunScript.append("bsub -q short -W 300 -n 1 -app Reserve5G -o output/" + outFile
-							+ "  java -jar -Xmx2G cfpminer.jar --datasetName " + dataset + " --run " + run
-							+ " --classifier " + alg + " --type " + type + " --featureSelection filt --hashfoldsize "
-							+ size + " -x\n");
-					rerunScript.append("sleep 0.5\n");
-				}
+				this.params = measure;
+				setParamsStr();
+				algResults.put(alg, ResultSetIO.parseFromFile(f));
 			}
 			else
 			{
-				String src = "/home/martin/workspace/CFPMiner/results_r5_all/";
-				String dest = "/home/martin/workspace/CFPMiner/results_r5_best_no_resample/";
-				for (int run = 1; run <= 5; run++)
-				{
-					String resFile = CFPMiner.resultFileName(run, type, FeatureSelection.filt, size, alg, dataset);
-					FileUtil.copy(src + resFile, dest + resFile);
-				}
-			}
-		}
-		System.out.println(best.toString());
-		String dest = ValidationResultsProvider.RESULTS_MERGED_FOLDER + alg + paramsStr + ".best";
-		ResultSetIO.printToFile(new File(dest), best, true);
-		System.out.println("written best methods to " + dest);
+				read(new String[] { alg }, "");
+				remove_obs_sizes(alg);
 
-		FileUtil.writeStringToFile("/tmp/killme", rerunScript.toString());
-		//        System.out.println();
-		//        System.out.flush();
-		//        System.err.println(rerunScript);
+				for (final String dataset : DATASETS)
+				{
+					System.out.println(dataset);
+
+					ResultSet r = algResults.get(alg).filter(new ResultSetFilter()
+					{
+						@Override
+						public boolean accept(Result result)
+						{
+							return result.getValue("Dataset").equals(dataset);
+						}
+					});
+					if (r.getNumResults() == 0)
+						continue;
+
+					final ResultSet test = r.pairedTTest_All("Method",
+							ArrayUtil.toList(new String[] { "Run", "Fold" }), measure, SIG_LEVEL_RELAXED, null);
+					//System.err.println(test.toNiceString());
+
+					r = r.join(new String[] { "Method", "Dataset" }, new String[] { "Run", "Fold" }, null);
+
+					//					System.err.println();
+
+					ResultSet winners = r.filter(new ResultSetFilter()
+					{
+						@Override
+						public boolean accept(Result result)
+						{
+							Boolean w = ResultSet.isWinOrLoss(test, "Method", result.getValueToString("Method"),
+									measure);
+							return (w != null && w);
+						}
+					});
+					if (winners.getNumResults() > 0)
+						r = winners;
+					else
+						System.err.println("no differences");
+
+					ResultSet r_non_fold = r.filter(new ResultSetFilter()
+					{
+						@Override
+						public boolean accept(Result result)
+						{
+							return featFromMethod(result.getValue("Method").toString()) != FeatureSelection.fold;
+						}
+					});
+					if (r_non_fold.getNumResults() > 0)
+						r = r_non_fold;
+					else
+					{
+						System.err.println(r.toNiceString());
+						throw new IllegalStateException("damn, only fold left!");
+					}
+
+					r.sortResults("Features", true, true, -1);
+					r.sortResults(measure, false);
+
+					System.err.println(r.toNiceString());
+
+					//					System.err.println();
+					//					System.err.println(r_non_filt.toNiceString());
+					//					System.exit(1);
+
+					final String bestMethod = r.getResultValue(0, "Method").toString();
+
+					algResults.put(alg, algResults.get(alg).filter(new ResultSetFilter()
+					{
+						@Override
+						public boolean accept(Result result)
+						{
+							if (result.getValue("Dataset").toString().equals(dataset))
+								return result.getValue("Method").equals(bestMethod);
+							else
+								return true;
+						}
+					}));
+				}
+				ResultSetIO.printToFile(f, algResults.get(alg), true);
+			}
+			//			System.out.println(algResults.get(alg).toNiceString());
+
+			if (algResults.containsKey(ALL_ALGS))
+				algResults.get(ALL_ALGS).concat(algResults.get(alg));
+			else
+				algResults.put(ALL_ALGS, algResults.get(alg));
+
+			System.out.println(DATASETS.length * algCount++ * 5 * 10);
+			System.out.println(algResults.get(ALL_ALGS).getNumResults());
+		}
+
+		System.out.println(algResults.get(ALL_ALGS)
+				.join(new String[] { "Method", "Dataset" }, new String[] { "Run", "Fold" }, null).toNiceString());
+
+		ALGORITHMS = new String[] { ALL_ALGS };
 	}
 
-	public void ranking(String params) throws Exception
+	/** leaves only a single method per algorithm and dataset in algResutls */
+	public void estimateBest(String measure) throws Exception
+	{
+		int algCount = 1;
+		for (String alg : ALGORITHMS)
+		{
+			System.out.println(alg);
+
+			File f = new File(ValidationResultsProvider.RESULTS_MERGED_FOLDER + alg + "." + measure + ".d"
+					+ DATASETS.length + ".best");
+			if (f.exists())
+			{
+				this.params = measure;
+				setParamsStr();
+				algResults.put(alg, ResultSetIO.parseFromFile(f));
+			}
+			else
+			{
+				read(new String[] { alg }, "");
+				remove_obs_sizes(alg);
+
+				for (final String dataset : DATASETS)
+				{
+					ResultSet r = algResults.get(alg).filter(new ResultSetFilter()
+					{
+						@Override
+						public boolean accept(Result result)
+						{
+							return result.getValue("Dataset").equals(dataset);
+						}
+					});
+					if (r.getNumResults() == 0)
+						continue;
+					r = r.join(new String[] { "Method", "Dataset" }, new String[] { "Run", "Fold" }, null);
+					r.sortResults("Method", new Comparator<Object>()
+					{
+						@Override
+						public int compare(Object o1, Object o2)
+						{
+							String method = o1.toString();
+							String method2 = o2.toString();
+							String size = sizeFromMethod(method);
+							String size2 = sizeFromMethod(method2);
+							if (size == null)
+								size = Integer.MAX_VALUE + "";
+							if (size2 == null)
+								size2 = Integer.MAX_VALUE + "";
+							if (!size.equals(size2))
+								return new Integer(size).compareTo(new Integer(size2));
+							int diameter = fpFromMethod(method).getDiameter();
+							int diameter2 = fpFromMethod(method2).getDiameter();
+							if (diameter != diameter2)
+								return new Integer(diameter).compareTo(new Integer(diameter2));
+							FeatureSelection feat = featFromMethod(method);
+							FeatureSelection feat2 = featFromMethod(method2);
+							if (feat != feat2)
+							{
+								if (feat == FeatureSelection.filt)
+									return -1;
+								else if (feat2 == FeatureSelection.filt)
+									return 1;
+								if (feat == FeatureSelection.none)
+									return -1;
+								else if (feat2 == FeatureSelection.none)
+									return 1;
+							}
+							return 0;
+							//                                CFPType type = fpFromMethod(method);
+							//                                CFPType type2 = fpFromMethod(method2);
+							//                                if (type.getDiameter() != type2.getDiameter())
+							//                                    return new Integer(type.getDiameter()).compareTo(new Integer(type.getDiameter()));
+							//                                if (type != type2)
+						}
+					});
+					r.sortResults("Features"); //, !dataset.equals("AMES"));
+					r.sortResults(measure, false);
+					final String bestMethod = r.getResultValue(0, "Method").toString();
+
+					if (r.getResultValue(0, measure).equals(r.getResultValue(1, measure))
+							&& r.getResultValue(0, "Features").equals(r.getResultValue(1, "Features"))
+							&& sizeFromMethod(bestMethod).equals(
+									sizeFromMethod(r.getResultValue(1, "Method").toString()))
+							&& featFromMethod(bestMethod).equals(
+									featFromMethod(r.getResultValue(1, "Method").toString()))
+							&& fpFromMethod(bestMethod).getDiameter() == fpFromMethod(
+									r.getResultValue(1, "Method").toString()).getDiameter())
+						throw new Error("equal: auc && #features && size && diam && feat-sel:\n" + r.toNiceString());
+
+					algResults.put(alg, algResults.get(alg).filter(new ResultSetFilter()
+					{
+						@Override
+						public boolean accept(Result result)
+						{
+							if (result.getValue("Dataset").toString().equals(dataset))
+								return result.getValue("Method").equals(bestMethod);
+							else
+								return true;
+						}
+					}));
+				}
+				ResultSetIO.printToFile(f, algResults.get(alg), true);
+			}
+			//			System.out.println(algResults.get(alg).toNiceString());
+
+			if (algResults.containsKey(ALL_ALGS))
+				algResults.get(ALL_ALGS).concat(algResults.get(alg));
+			else
+				algResults.put(ALL_ALGS, algResults.get(alg));
+
+			System.out.println(DATASETS.length * algCount++ * 5 * 10);
+			System.out.println(algResults.get(ALL_ALGS).getNumResults());
+		}
+
+		System.out.println(algResults.get(ALL_ALGS)
+				.join(new String[] { "Method", "Dataset" }, new String[] { "Run", "Fold" }, null).toNiceString());
+
+		ALGORITHMS = new String[] { ALL_ALGS };
+	}
+
+	public void best(String measure) throws Exception
+	{
+		ResultSet cmp = new ResultSet();
+		ResultSet cmp2 = new ResultSet();
+		File f = new File("/tmp/best.out");
+		if (f.exists())
+		{
+			cmp = ResultSetIO.parseFromFile(f);
+		}
+		else
+		{
+			boolean scriptAndCopy = false;
+
+			StringBuffer rerunScript = new StringBuffer();
+			rerunScript.append("#!/bin/bash\n");
+			rerunScript.append("module load Java/jdk1.8.0_25\n");
+
+			for (String alg : ALGORITHMS)
+			{
+				algResults.clear();
+				read(new String[] { alg }, "");
+				remove_obs_sizes(alg);
+
+				ResultSet best = new ResultSet();
+				//        System.out.println(algResults.get(alg).toNiceString());
+
+				int datasetIdx = 0;
+				for (final String dataset : new CFPDataLoader("data").allDatasets())
+				{
+					ResultSet r = algResults.get(alg).filter(new ResultSetFilter()
+					{
+						@Override
+						public boolean accept(Result result)
+						{
+							return result.getValue("Dataset").equals(dataset);
+						}
+					});
+					if (r.getNumResults() == 0)
+						continue;
+					r = r.join(new String[] { "Method", "Dataset" }, new String[] { "Run", "Fold" }, null);
+
+					r.sortResults("Method", new Comparator<Object>()
+					{
+						@Override
+						public int compare(Object o1, Object o2)
+						{
+							String method = o1.toString();
+							String method2 = o2.toString();
+							String size = sizeFromMethod(method);
+							String size2 = sizeFromMethod(method2);
+							if (size == null)
+								size = Integer.MAX_VALUE + "";
+							if (size2 == null)
+								size2 = Integer.MAX_VALUE + "";
+							if (!size.equals(size2))
+								return new Integer(size).compareTo(new Integer(size2));
+							int diameter = fpFromMethod(method).getDiameter();
+							int diameter2 = fpFromMethod(method2).getDiameter();
+							if (diameter != diameter2)
+								return new Integer(diameter).compareTo(new Integer(diameter2));
+							FeatureSelection feat = featFromMethod(method);
+							FeatureSelection feat2 = featFromMethod(method2);
+							if (feat != feat2)
+							{
+								if (feat == FeatureSelection.filt)
+									return -1;
+								else if (feat2 == FeatureSelection.filt)
+									return 1;
+								if (feat == FeatureSelection.none)
+									return -1;
+								else if (feat2 == FeatureSelection.none)
+									return 1;
+							}
+							return 0;
+							//                                CFPType type = fpFromMethod(method);
+							//                                CFPType type2 = fpFromMethod(method2);
+							//                                if (type.getDiameter() != type2.getDiameter())
+							//                                    return new Integer(type.getDiameter()).compareTo(new Integer(type.getDiameter()));
+							//                                if (type != type2)
+						}
+					});
+					r.sortResults("Features", !dataset.equals("AMES"));
+					r.sortResults(measure, false);
+
+					if (r.getResultValue(0, measure).equals(r.getResultValue(1, measure))
+							&& r.getResultValue(0, "Features").equals(r.getResultValue(1, "Features"))
+							&& sizeFromMethod(r.getResultValue(0, "Method").toString()).equals(
+									sizeFromMethod(r.getResultValue(1, "Method").toString()))
+							&& featFromMethod(r.getResultValue(0, "Method").toString()).equals(
+									featFromMethod(r.getResultValue(1, "Method").toString()))
+							&& fpFromMethod(r.getResultValue(0, "Method").toString()).getDiameter() == fpFromMethod(
+									r.getResultValue(1, "Method").toString()).getDiameter())
+						throw new Error("equal: auc && #features && size && diam && feat-sel:\n" + r.toNiceString());
+
+					//			System.out.println(dataset);
+					//			System.out.println(r.getResultValue(0, "Method"));
+					//			//			System.out.println(r.toNiceString());
+					//			System.out.println();
+
+					int idx = best.addResult();
+					best.setResultValue(idx, "Dataset", dataset);
+					CFPType type = fpFromMethod(r.getResultValue(0, "Method").toString());
+					best.setResultValue(idx, "type", type);
+					FeatureSelection feat = featFromMethod(r.getResultValue(0, "Method").toString());
+					best.setResultValue(idx, "feat", feat);
+					int size = 0;
+					if (feat != FeatureSelection.none)
+					{
+						size = Integer.valueOf(sizeFromMethod(r.getResultValue(0, "Method").toString()));
+						best.setResultValue(idx, "hashfoldsize", size);
+					}
+
+					idx = cmp.addResult();
+					cmp.setResultValue(idx, "Dataset", dataset);
+					cmp.setResultValue(idx, "Algorithm", alg);
+					cmp.setResultValue(idx, measure, r.getResultValue(0, measure));
+					if (datasetIdx >= cmp2.getNumResults())
+					{
+						cmp2.addResult();
+						cmp2.setResultValue(datasetIdx, "Dataset", dataset);
+					}
+					cmp2.setResultValue(datasetIdx, alg, r.getResultValue(0, measure));
+
+					if (scriptAndCopy)
+					{
+						if (dataset.startsWith("ChEMBL") || dataset.startsWith("MUV"))
+						{
+							for (int run = 1; run <= 5; run++)
+							{
+								String resFile = CFPMiner.resultFileName(run, type, feat, size, alg, dataset);
+								String outFile = resFile.replace(".arff", ".output");
+								String hashfoldStr = "";
+								if (feat != FeatureSelection.none)
+									hashfoldStr = "--hashfoldsize " + size;
+								rerunScript.append("bsub -q short -W 300 -n 1 -app Reserve5G -o output/" + outFile
+										+ "  java -jar -Xmx2G cfpminer.jar --datasetName " + dataset + " --run " + run
+										+ " --classifier " + alg + " --type " + type + " --featureSelection " + feat
+										+ " " + hashfoldStr + " -x\n");
+								rerunScript.append("sleep 0.5\n");
+							}
+						}
+						else
+						{
+							//				String src = "/home/martin/workspace/CFPMiner/results_r5_all/";
+							//				String dest = "/home/martin/workspace/CFPMiner/results_r5_best_no_resample/";
+							//				for (int run = 1; run <= 5; run++)
+							//				{
+							//					String resFile = CFPMiner.resultFileName(run, type, FeatureSelection.filt, size, alg, dataset);
+							//					FileUtil.copy(src + resFile, dest + resFile);
+							//				}
+						}
+					}
+					datasetIdx++;
+				}
+				System.out.println(best.toNiceString());
+				if (scriptAndCopy)
+				{
+					String dest = ValidationResultsProvider.RESULTS_MERGED_FOLDER + alg + paramsStr + ".best";
+					ResultSetIO.printToFile(new File(dest), best, true);
+					System.out.println("written best methods to " + dest);
+
+					FileUtil.writeStringToFile("/tmp/killme", rerunScript.toString());
+					System.out.println();
+					System.out.flush();
+					System.err.println(rerunScript);
+					break;
+				}
+			}
+			ResultSetIO.printToFile(f, cmp, true);
+		}
+		System.out.println(cmp.toNiceString());
+		ResultSet diff = cmp.diff("Algorithm", ArrayUtil.toList(new String[] { "Dataset" }), null);
+		System.out.println(diff.toNiceString());
+		ResultSet winLoss = diff.winLoss(ArrayUtil.toList(new String[] { "Algorithm" }), null);
+		System.out.println("\nwin loss (uses diff as input)\n");
+		System.out.println(winLoss.toNiceString());
+
+		System.out.println(cmp2.toNiceString());
+	}
+
+	public void ranking(String params, String measure) throws Exception
+	{
+		ResultSet combined = new ResultSet();
+		for (String alg : ALGORITHMS)
+		{
+			System.out.println("\n\n\n" + alg + "\n--------------\n");
+			ResultSet r;
+
+			this.params = params;
+			setParamsStr();
+			String cache = ValidationResultsProvider.RESULTS_MERGED_FOLDER + alg + paramsStr + ".joined";
+			if (!new File(cache).exists())
+			{
+				read(new String[] { alg }, params);
+				remove_obs_sizes(alg);
+				r = algResults.get(alg)
+						.join(new String[] { "Method", "Dataset" }, new String[] { "Run", "Fold" }, null);
+				ResultSetIO.printToFile(new File(cache), r, true);
+			}
+			else
+			{
+				System.err.println("read cached from: " + cache);
+				r = ResultSetIO.parseFromFile(new File(cache));
+			}
+			//			r = r.filter(new ResultSetFilter()
+			//			{
+			//				@Override
+			//				public boolean accept(Result result)
+			//				{
+			//					String size = sizeFromMethod(result.getValue("Method").toString());
+			//					return size == null || size.equals("1024") || size.equals("8192");
+			//				}
+			//			});
+
+			r = r.rank(measure, new String[] { "Dataset" });
+			r.clearMergeCountAndVariance();
+			int numDatasets = r.getResultValues("Dataset").getNumValues();
+			System.err.println("num datasets " + numDatasets);
+			r = r.join("Method");
+			renameMethods(alg, r);
+			r.removePropery("Dataset");
+			for (String p : ValidationResultsProvider.performanceMeasures)
+				r.removePropery(p);
+			r.removePropery("Sensitivity");
+			r.removePropery("Selectivity");
+
+			r.sortResults(measure + ResultSet.RANK_SUFFIX, true, true, -1);
+
+			System.out.println(r.toNiceString());
+			//			for (String p : new String[] { "Features", "folding-enabled" })
+			//				System.out.println("correlation to " + p + " " + r.spearmanCorrelation(measure + "_rank", p));
+
+			//			System.exit(1);
+
+			int count = 0;
+			int winFold = 0;
+			int winAll = 0;
+
+			double diffFold = 0.0;
+			double diffAll = 0.0;
+			for (CFPType t : CFPType.values())
+			{
+				for (String size : SIZES)
+				{
+					//					System.out.println(t + " " + size);
+					int iFilt = getResult(r, t, size, FeatureSelection.filt);
+					if (iFilt == -1)
+						continue;
+					Double rFilt = (Double) r.getResultValue(iFilt, measure + ResultSet.RANK_SUFFIX);
+					Double rFold = (Double) r.getResultValue(getResult(r, t, size, FeatureSelection.fold), measure
+							+ ResultSet.RANK_SUFFIX);
+					//					System.out.println(rFilt + " vs " + rFold);
+					if (rFilt < rFold)
+						winFold += 1;
+					else
+						System.out.println("fold loss: " + t + " " + size);
+					diffFold += rFold - rFilt;
+
+					Double rAll = (Double) r.getResultValue(getResult(r, t, null, FeatureSelection.none), measure
+							+ ResultSet.RANK_SUFFIX);
+					if (rFilt < rAll)
+						winAll += 1;
+					diffAll += rAll - rFilt;
+
+					count += 1;
+				}
+			}
+			System.out.println("filt vs fold - < " + winFold + "/" + count + " - diff " + (diffFold / (double) count));
+			System.out.println("filt vs all - < " + winAll + "/" + count + " - diff " + (diffAll / (double) count));
+
+			int sumBest = 0;
+			for (int i = 0; i < r.getNumResults(); i++)
+			{
+				if (alg.equals(ALGORITHMS[0]))
+					combined.addResult();
+				//				else if (!combined.getResultValue(i, "Method").equals(r.getResultValue(i, "Method")))
+				//					throw new IllegalStateException();
+				String m = r.getResultValue(i, "Method").toString();
+				combined.setResultValue(i, alg + " CFPType", fpFromMethod(m));
+				combined.setResultValue(i, alg + " FeatureSelection", featFromMethod(m).toNiceShortString());
+				String size = sizeFromMethod(m);
+				combined.setResultValue(i, alg + " hashfoldSize",
+						size != null ? size : Math.round((Double) r.getResultValue(i, "Features")) + "");
+
+				//				combined.setResultValue(i, "Coll.", "to be overwritten");
+				//				combined.setResultValue(i, alg + " Top3", "");
+				combined.setResultValue(i, alg + " " + measure + " Rank",
+						StringUtil.formatDouble(((Double) r.getResultValue(i, measure + ResultSet.RANK_SUFFIX)), 1));
+				double best = ((Number) r.getResultValue(i, measure + ResultSet.RANK_BEST_SUFFIX)).doubleValue()
+						* numDatasets;
+				sumBest += best;
+				combined.setResultValue(i, alg + " " + measure + " Best", (int) best);
+				//				combined.setNicePropery(alg + " Top3", "Top3");
+				combined.setNicePropery(alg + " " + measure + " Rank", "Rank");
+
+				combined.setNicePropery(alg + " CFPType", niceValuesShort.get("CFPType"));
+				combined.setNicePropery(alg + " FeatureSelection", niceValuesShort.get("FeatureSelection"));
+				combined.setNicePropery(alg + " hashfoldSize", niceValuesShort.get("hashfoldSize"));
+				combined.setNicePropery(alg + " " + measure + " Best", "Best");
+			}
+			System.err.println("num best sum " + sumBest);
+
+		}
+
+		System.out.println("\n\n\ncombined\n--------------\n");
+
+		System.out.println(combined.toNiceString());
+
+		//		System.out.println(9 / (double) combined.getNumResults());
+		//		System.out.println(27 / (double) combined.getNumResults());
+
+		if (write)
+		{
+			String dest = destFolder + "ranking.tex";
+			System.out.println("write table to " + dest);
+
+			String preProp = "";
+			Integer hlines[] = {};
+			for (String alg : ALGORITHMS)
+			{
+				if (!preProp.isEmpty())
+					preProp += "& ";
+				preProp += "\\multicolumn{3}{c}{" + niceValues.get(alg) + "} & \\multicolumn{2}{c}{" + measure + "} ";
+				Integer h[] = new Integer[] { hlines.length > 0 ? 2 : 0, 0, 0, 1, 0 };
+				if (hlines.length == 0)
+					hlines = h;
+				else
+					hlines = ArrayUtil.concat(hlines, h);
+			}
+			//hlines = ArrayUtil.concat(hlines, new Boolean[] { true });
+			preProp += "\\\\\n";
+
+			FileUtil.writeStringToFile(dest, combined.toLatexTable(null, hlines, preProp));
+		}
+	}
+
+	private int getResult(ResultSet set, CFPType type, String size, FeatureSelection feat)
+	{
+		for (int i = 0; i < set.getNumResults(); i++)
+		{
+			String m = set.getResultValue(i, "Method").toString();
+			if (fpFromMethod(m) == type && featFromMethod(m) == feat && ObjectUtil.equals(sizeFromMethod(m), size))
+				return i;
+		}
+		return -1;
+	}
+
+	public void rankingOld(String params, String measure) throws Exception
 	{
 		ResultSet combined = new ResultSet();
 		for (String alg : ALGORITHMS)
@@ -499,18 +1116,30 @@ public class CreatePaperResults
 			ResultSet r;
 
 			this.params = params;
-			paramsStr = params.length() > 0 ? ("_" + params) : "";
-			String cache = ValidationResultsProvider.RESULTS_MERGED_FOLDER + alg + paramsStr + ".ranking";
+			setParamsStr();
+			String cache = ValidationResultsProvider.RESULTS_MERGED_FOLDER + alg + paramsStr + ".joined";
 			if (!new File(cache).exists())
 			{
 				read(new String[] { alg }, params);
-				convert_low(alg);
+				remove_obs_sizes(alg);
 				r = algResults.get(alg)
 						.join(new String[] { "Method", "Dataset" }, new String[] { "Run", "Fold" }, null);
 				ResultSetIO.printToFile(new File(cache), r, true);
 			}
 			else
+			{
+				System.err.println("read cached from: " + cache);
 				r = ResultSetIO.parseFromFile(new File(cache));
+			}
+			r = r.filter(new ResultSetFilter()
+			{
+				@Override
+				public boolean accept(Result result)
+				{
+					String size = sizeFromMethod(result.getValue("Method").toString());
+					return size == null || size.equals("1024") || size.equals("8192");
+				}
+			});
 
 			//			if (alg.equals("SMO") && r.getResultValues("Dataset").getNumValues() > 1)
 			//				r = r.filter(new ResultSetFilter()
@@ -522,7 +1151,7 @@ public class CreatePaperResults
 			//					}
 			//				});
 
-			r = r.rank("AUC", new String[] { "Dataset" });
+			r = r.rank(measure, new String[] { "Dataset" });
 			r.clearMergeCountAndVariance();
 			int numDatasets = r.getResultValues("Dataset").getNumValues();
 			System.err.println("num datasets " + numDatasets);
@@ -531,39 +1160,54 @@ public class CreatePaperResults
 			r.removePropery("Dataset");
 			for (String p : ValidationResultsProvider.performanceMeasures)
 				r.removePropery(p);
+			r.removePropery("Sensitivity");
+			r.removePropery("Selectivity");
 			//			r.sortResults("AUC" + ResultSet.RANK_SUFFIX, true, true, -1);
-			System.out.println(r.toNiceString());
+			//			System.out.println(r.toNiceString());
 
 			int sumBest = 0;
 			for (int i = 0; i < r.getNumResults(); i++)
 			{
-				if (alg.equals("RaF"))
+				if (alg.equals(ALGORITHMS[0]))
 					combined.addResult();
 				else if (!combined.getResultValue(i, "Method").equals(r.getResultValue(i, "Method")))
 					throw new IllegalStateException();
 				combined.setResultValue(i, "Method", r.getResultValue(i, "Method"));
 				combined.setResultValue(i, "Features", Math.round((Double) r.getResultValue(i, "Features")));
-				combined.setResultValue(i, "Collisions", "to be overwritten");
+				combined.setResultValue(i, "Coll.", "to be overwritten");
 				combined.setResultValue(i, alg + " Top3", "");
-				combined.setResultValue(i, alg + " AUC Rank", r.getResultValue(i, "AUC" + ResultSet.RANK_SUFFIX));
-				double best = ((Number) r.getResultValue(i, "AUC" + ResultSet.RANK_BEST_SUFFIX)).doubleValue()
+				combined.setResultValue(i, alg + " " + measure + " Rank",
+						r.getResultValue(i, measure + ResultSet.RANK_SUFFIX));
+				double best = ((Number) r.getResultValue(i, measure + ResultSet.RANK_BEST_SUFFIX)).doubleValue()
 						* numDatasets;
 				sumBest += best;
-				combined.setResultValue(i, alg + " AUC Best", (int) best);
+				combined.setResultValue(i, alg + " " + measure + " Best", (int) best);
 				combined.setNicePropery(alg + " Top3", "Top3");
-				combined.setNicePropery(alg + " AUC Rank", "Rank");
-				combined.setNicePropery(alg + " AUC Best", "Best");
+				combined.setNicePropery(alg + " " + measure + " Rank", "Rank");
+				combined.setNicePropery(alg + " " + measure + " Best", "Best");
 			}
 			System.err.println("num best sum " + sumBest);
 
-			r.sortResults("AUC" + ResultSet.RANK_SUFFIX, true, true, -1);
+			r.sortResults(measure + ResultSet.RANK_SUFFIX, true, true, -1);
+
+			for (int i = 0; i < r.getNumResults(); i++)
+			{
+				String m = r.getResultValue(i, "Method").toString();
+				FeatureSelection f = featFromMethod(m);
+				r.setResultValue(i, "folding-enabled", f == FeatureSelection.fold);
+			}
 			System.out.println(r.toNiceString());
+			for (String p : new String[] { "Features", "folding-enabled" })
+				System.out.println("correlation to " + p + " " + r.spearmanCorrelation(measure + "_rank", p));
+
+			//			System.exit(1);
+
 			for (int i = 0; i < 3; i++)
 			{
-				double rank = (Double) r.getResultValue(i, "AUC" + ResultSet.RANK_SUFFIX);
+				double rank = (Double) r.getResultValue(i, measure + ResultSet.RANK_SUFFIX);
 				for (int c = 0; c < combined.getNumResults(); c++)
 				{
-					double rankC = (Double) combined.getResultValue(c, alg + " AUC Rank");
+					double rankC = (Double) combined.getResultValue(c, alg + " " + measure + " Rank");
 					if (rankC == rank)
 						combined.setResultValue(c, alg + " Top3", "*");
 				}
@@ -591,27 +1235,30 @@ public class CreatePaperResults
 				rate = collisionRate.get(fpFromMethod(method), sizeFromMethod(method));
 			else
 				rate = 0.0;
-			combined.setResultValue(i, "Collisions", rate);
-			combined.setResultValue(i, "Combined Rank", (((Number) combined.getResultValue(i, "RaF AUC Rank"))
-					.doubleValue() + ((Number) combined.getResultValue(i, "SMO AUC Rank")).doubleValue()) / 2.0);
+			combined.setResultValue(i, "Coll.", rate);
+			double rankSum = 0;
+			for (String alg : ALGORITHMS)
+				rankSum += ((Number) combined.getResultValue(i, alg + " " + measure + " Rank")).doubleValue();
+			combined.setResultValue(i, "Combined Rank", rankSum / (double) ALGORITHMS.length);
 		}
 		combined.sortResults("Combined Rank", true, true, -1);
 
-		//combined.sortResults("RaF AUC Rank", true, true, -1);
+		//combined.sortResults("RaF "+measure+" Rank", true, true, -1);
 		//combined.removePropery("Combined Rank");
 
 		for (String p : niceValues.keySet())
 			combined.setNicePropery(p, niceValues.get(p));
 
 		combined.removePropery("Method");
-		combined.removePropery("RaF Top3");
-		combined.removePropery("SMO Top3");
+		for (String alg : ALGORITHMS)
+			combined.removePropery(alg + " Top3");
 
 		for (int i = 0; i < combined.getNumResults(); i++)
 			combined.setResultValue(i, "idx", i + 1);
 
 		System.out.println(combined.toNiceString());
 		System.out.println(combined.getNumResults());
+
 		//		System.out.println(9 / (double) combined.getNumResults());
 		//		System.out.println(27 / (double) combined.getNumResults());
 
@@ -621,11 +1268,16 @@ public class CreatePaperResults
 			System.out.println("write table to " + dest);
 
 			String preProp = " \\multicolumn{" + addP + "}{c}{Selected features} & & ";
-			for (String alg : new String[] { "RaF", "SMO" })
-				preProp += "& \\multicolumn{2}{c}{" + niceValuesShort.get(alg) + " AUC} ";
+			Boolean hlines[] = { false, true, false, false, true, false };
+			for (String alg : ALGORITHMS)
+			{
+				preProp += "& \\multicolumn{2}{c}{" + niceValuesShort.get(alg) + " " + measure + "} ";
+				hlines = ArrayUtil.concat(hlines, new Boolean[] { true, false });
+			}
+			hlines = ArrayUtil.concat(hlines, new Boolean[] { true });
 			preProp += "&\\\\\n";
-			Boolean hlines[] = { false, true, false, false, true, false, true, false, true, false, true };
-			FileUtil.writeStringToFile(dest, combined.toLatexTable(null, ArrayUtil.toList(hlines), preProp));
+
+			FileUtil.writeStringToFile(dest, combined.toLatexTable(null, hlines, preProp));
 		}
 	}
 
@@ -647,6 +1299,8 @@ public class CreatePaperResults
 
 			for (final String typeSize : new String[] { "6", "4", "2", "0" })
 			{
+				CFPType t = CFPType.valueOf(type + typeSize);
+
 				ResultSet r = res.copy().filter(new ResultSetFilter()
 				{
 					@Override
@@ -658,8 +1312,21 @@ public class CreatePaperResults
 				r.removePropery("Type");
 				for (String size : SIZES)
 				{
-					r.setNicePropery(size + " bit-load", "bit-load");
-					r.setNicePropery(size + " collisions", "rate");
+
+					if (skipFiltFoldMethod(t, Integer.parseInt(size)))
+					{
+						System.err.println("skip " + t + " " + size);
+						for (int i = 0; i < r.getNumResults(); i++)
+						{
+							r.setResultValue(i, size + " bit-load", null);
+							r.setResultValue(i, size + " collisions", null);
+						}
+					}
+					else
+					{
+						r.setNicePropery(size + " bit-load", "bit-load");
+						r.setNicePropery(size + " collisions", "rate");
+					}
 				}
 
 				if (!noOutput)
@@ -673,12 +1340,25 @@ public class CreatePaperResults
 					{
 						String dest = destFolder + "collisions_" + type + typeSize + ".tex";
 						System.out.println("write table to " + dest);
-						FileUtil.writeStringToFile(dest, r.toLatexTable(null, null, datasetPreProp));
+						FileUtil.writeStringToFile(dest, r.toLatexTable(null, (Integer[]) null, datasetPreProp));
 					}
 				}
 			}
 
 			ResultSet joined = res.join("Type");
+			for (int i = 0; i < joined.getNumResults(); i++)
+			{
+				CFPType t = CFPType.valueOf(joined.getResultValue(i, "Type").toString());
+				for (String size : SIZES)
+				{
+					if (skipFiltFoldMethod(t, Integer.parseInt(size)))
+					{
+						joined.setResultValue(i, size + " bit-load", null);
+						joined.setResultValue(i, size + " collisions", null);
+					}
+				}
+			}
+
 			joined.removePropery("Dataset");
 			joined.removePropery("Compounds");
 
@@ -709,7 +1389,7 @@ public class CreatePaperResults
 				{
 					String dest = destFolder + "collisions_" + type + ".tex";
 					System.out.println("write table to " + dest);
-					FileUtil.writeStringToFile(dest, joined.toLatexTable(null, null, preProp));
+					FileUtil.writeStringToFile(dest, joined.toLatexTable(null, (Integer[]) null, preProp));
 				}
 			}
 		}
@@ -766,21 +1446,56 @@ public class CreatePaperResults
 			ResultSet r = algResults.get(alg).join(new String[] { "Method", "Dataset" },
 					new String[] { "Run", "Fold" }, null);
 			sortDatasets(r);
-			r.sortResults("Method", false);
+			//			if (alg.equals(ALL_ALGS))
+			//			{
+			//				r.sortResults("Method", new Comparator<Object>()
+			//				{
+			//					@Override
+			//					public int compare(Object o1, Object o2)
+			//					{
+			//						String m1 = o1.toString();
+			//						String m2 = o2.toString();
+			//						return algFromMethod(m1).compareTo(algFromMethod(m2));
+			//					}
+			//				});
+			//			}
+			//			else
+			//			{
 			renameMethods(alg, r);
+			r.sortResults("Method", false);
+
+			//			}
 			renameDatasets(r);
 
-			//System.out.println(r.toNiceString());
+			//			System.out.println(r.toNiceString());
 			ResultSetLinePlot plot = new ResultSetLinePlot(r, ValidationResultsProvider.performanceMeasures, "Method",
 					"Dataset");
 			plot.setTitle(null);
 			plot.setXAxisLabel(null);
 			plot.setRotateXLabels(ResultSetLinePlot.XLabelsRotation.vertical);
 			if (ValidationResultsProvider.performanceMeasures.length > 1)
-				plot.setYAxisRange(0.0, 1.0);
+			{
+				for (String p : ValidationResultsProvider.performanceMeasures)
+					if (p.equals("AUC") || p.equals("Accuracy"))
+					{
+						plot.setYAxisRange(p, 0.5, 1.0);
+						plot.setYAxisTickUnits(p, 0.125);
+					}
+					else if (p.equals("FMeasure") || p.equals("Sensitivity") || p.equals("Selectivity")
+							|| p.equals("AUP"))
+					{
+						plot.setYAxisRange(p, 0.0, 1.0);
+						plot.setYAxisTickUnits(p, 0.125);
+					}
+					else if (p.equals("TN"))
+					{
+						plot.setYAxisRange(p, 197, 201);
+					}
+			}
 			else if (ValidationResultsProvider.performanceMeasures.length == 1
 					&& ValidationResultsProvider.performanceMeasures[0].equals("AUC"))
 				plot.setYAxisRange(0.5, 1.0);
+
 			for (String p : ValidationResultsProvider.performanceMeasures)
 			{
 				//			if (p.equals("Accuracy"))
@@ -802,48 +1517,49 @@ public class CreatePaperResults
 				//			}
 			}
 
-			{
-				ResultSet rTest = algResults.get(alg).copy();
-				renameMethods(alg, rTest);
-				for (String p : ValidationResultsProvider.performanceMeasures)
-				{
-					ResultSet test = rTest.pairedTTest("Method", ArrayUtil.toList(new String[] { "Run", "Fold" }), p,
-							SIG_LEVEL, TEST_CORRECTION, "Dataset");
-					List<String> methods = ListUtil.toStringList(r.getResultValues("Method").values());
-					for (String m1 : methods)
-					{
-						for (String m2 : methods)
-						{
-							if (m1 == m2)
-								continue;
-							for (Object datasetWins : ResultSet.listSeriesWins(test, "Method", p, "Dataset", m1, m2))
-								plot.setDrawShape(p, datasetWins.toString(), m1);
-						}
-					}
-					System.out.println(test.toNiceString());
-				}
-				//			for (Object datasetWins : ResultSet.listSeriesWins(test, "Method", "AUC", "Dataset",
-				//					"RandomForest ecfp_filt_1024", "RandomForest ecfp_fold_1024"))
-				//				plot.setDrawShape("AUC", datasetWins.toString(), "RandomForest ecfp_filt_1024");
-				//			for (Object datasetWins : ResultSet.listSeriesWins(test, "Method", "AUC", "Dataset",
-				//					"RandomForest ecfp_fold_1024", "RandomForest ecfp_filt_1024"))
-				//				plot.setDrawShape("AUC", datasetWins.toString(), "RandomForest ecfp_fold_1024");
-
-			}
+			//			{
+			//				ResultSet rTest = algResults.get(alg).copy();
+			//				renameMethods(alg, rTest);
+			//				for (String p : ValidationResultsProvider.performanceMeasures)
+			//				{
+			//					ResultSet test = rTest.pairedTTest("Method", ArrayUtil.toList(new String[] { "Run", "Fold" }), p,
+			//							SIG_LEVEL, TEST_CORRECTION, "Dataset");
+			//					List<String> methods = ListUtil.toStringList(r.getResultValues("Method").values());
+			//					for (String m1 : methods)
+			//					{
+			//						for (String m2 : methods)
+			//						{
+			//							if (m1 == m2)
+			//								continue;
+			//							for (Object datasetWins : ResultSet.listSeriesWins(test, "Method", p, "Dataset", m1, m2))
+			//								plot.setDrawShape(p, datasetWins.toString(), m1);
+			//						}
+			//					}
+			//					System.out.println(test.toNiceString());
+			//				}
+			//				//			for (Object datasetWins : ResultSet.listSeriesWins(test, "Method", "AUC, "Dataset",
+			//				//					"RandomForest ecfp_filt_1024", "RandomForest ecfp_fold_1024"))
+			//				//				plot.setDrawShape("AUC", datasetWins.toString(), "RandomForest ecfp_filt_1024");
+			//				//			for (Object datasetWins : ResultSet.listSeriesWins(test, "Method", "AUC", "Dataset",
+			//				//					"RandomForest ecfp_fold_1024", "RandomForest ecfp_filt_1024"))
+			//				//				plot.setDrawShape("AUC", datasetWins.toString(), "RandomForest ecfp_fold_1024");
+			//
+			//			}
 
 			ChartPanel c = plot.getChartPanel();
 			c.setMaximumDrawWidth(10000);
 			c.setMaximumDrawHeight(5000);
 			//c.setPreferredSize(new Dimension(800, 600));
 
+			String name = "Chart_" + alg + paramsStr;
+			int height = 290 + ValidationResultsProvider.performanceMeasures.length * 85;
 			if (showCharts)
-				SwingUtil.showInFrame(c, new Dimension(1000, 800));
+				SwingUtil.showInFrame(c, destFolder + name, false, new Dimension(1000, 50 + height));
 
 			if (write)
 			{
-				plot.toSVGFile(destFolder + "Chart_" + alg + paramsStr + ".svg", new Dimension(800,
-						ValidationResultsProvider.performanceMeasures.length > 1 ? 600 : 400));
-				toPDF(destFolder + "Chart_" + alg + paramsStr);
+				plot.toSVGFile(destFolder + name + ".svg", new Dimension(800, height));
+				toPDF(destFolder + name);
 			}
 		}
 	}
@@ -870,22 +1586,24 @@ public class CreatePaperResults
 			plot.setPrintMeanAndStdev(true);
 
 			plot.setYTickUnit(0.05);
-			plot.setYRange(-0.15, 0.4);
+			plot.setYRange(-0.15, 0.15);
 
 			ChartPanel c = plot.getChart();
 			c.setMaximumDrawWidth(10000);
 			c.setMaximumDrawHeight(5000);
+			c.setMinimumDrawWidth(200);
 			c.setMinimumDrawHeight(200);
-			Dimension size = new Dimension(450, 250);
+			Dimension size = new Dimension(250, 250);
 			c.setPreferredSize(size);
 
+			String name = "Chart_Diff_" + alg + paramsStr + filterName;
 			if (showCharts)
-				SwingUtil.showInFrame(c);
+				SwingUtil.showInFrame(c, name, false);
 
 			if (write)
 			{
-				plot.boxPlotToSVGFile(destFolder + "Chart_Diff_" + alg + paramsStr + ".svg", size);
-				toPDF(destFolder + "Chart_Diff_" + alg + paramsStr);
+				plot.boxPlotToSVGFile(destFolder + name + ".svg", size);
+				toPDF(destFolder + name);
 			}
 		}
 	}
@@ -986,6 +1704,17 @@ public class CreatePaperResults
 		}
 	}
 
+	public String algFromMethod(String m)
+	{
+		for (String s : WEKA_ALGORITHM_NAMES.keySet())
+			if (m.contains(s))
+				return WEKA_ALGORITHM_NAMES.get(s);
+		for (String s : ORIG_ALGORITHMS)
+			if (m.equals(s))
+				return s;
+		throw new IllegalArgumentException(m);
+	}
+
 	public CFPType fpFromMethod(String m)
 	{
 		for (CFPType t : CFPType.values())
@@ -997,6 +1726,8 @@ public class CreatePaperResults
 			if (params.contains(t.toString()))
 				return t;
 		}
+		if (ArrayUtil.indexOf(ORIG_ALGORITHMS, m) != -1 || ArrayUtil.indexOf(ORIG_ALGORITHMS_NICE, m) != -1)
+			return null;
 		throw new IllegalArgumentException(m);
 	}
 
@@ -1011,6 +1742,8 @@ public class CreatePaperResults
 			if (params.contains(t.toString()))
 				return t;
 		}
+		if (ArrayUtil.indexOf(ORIG_ALGORITHMS, m) != -1 || ArrayUtil.indexOf(ORIG_ALGORITHMS_NICE, m) != -1)
+			return null;
 		throw new IllegalArgumentException(m);
 	}
 
@@ -1020,6 +1753,8 @@ public class CreatePaperResults
 			if (m.contains(s))
 				return s;
 		if (m.contains(FeatureSelection.none.toString()) || m.contains(FeatureSelection.none.toNiceString()))
+			return null;
+		if (ArrayUtil.indexOf(ORIG_ALGORITHMS, m) != -1 || ArrayUtil.indexOf(ORIG_ALGORITHMS_NICE, m) != -1)
 			return null;
 		throw new IllegalArgumentException(m);
 	}
@@ -1078,7 +1813,7 @@ public class CreatePaperResults
 						continue;
 					if (cmp == WinLossCompareAgainst.lastProp && !method2.contains(ArrayUtil.last(props)))
 						continue;
-					if (cmp == WinLossCompareAgainst.sameSize && !size.equals(size2))
+					if (cmp == WinLossCompareAgainst.sameSize && !ObjectUtil.equals(size, size2))
 						continue;
 					if (t1.getNumResults() - 1 < resCount)
 						t1.addResult();
@@ -1124,14 +1859,23 @@ public class CreatePaperResults
 				FileUtil.writeStringToFile(dest, t1.toLatexTable());
 			}
 
+			if (cmp == WinLossCompareAgainst.sameDiameter && params.equals("ecfp"))
+			{
+				System.out.println("hooray");
+			}
+
 			t1.getProperties().add(0, "Algorithm");
 			for (int i = 0; i < t1.getNumResults(); i++)
+			{
 				t1.setResultValue(i, "Algorithm", niceValuesShort.get(alg));
+			}
 			if (all == null)
 				all = t1;
 			else
 				all.concat(t1);
 		}
+		if (ALGORITHMS.length == 1)
+			return;
 		System.out.println(all.toNiceString());
 		if (write)
 		{
@@ -1270,7 +2014,8 @@ public class CreatePaperResults
 				{
 					String dest = destFolder + "Table_" + name + "_" + alg + paramsStr + "_" + m + ".tex";
 					System.out.println("write table to " + dest);
-					FileUtil.writeStringToFile(dest, t2.toLatexTable(null, hlineLeadingColumn, preProp));
+					FileUtil.writeStringToFile(dest,
+							t2.toLatexTable(null, ArrayUtil.toArray(hlineLeadingColumn), preProp));
 				}
 			}
 		}
@@ -1449,6 +2194,10 @@ public class CreatePaperResults
 	public static void main(String[] args) throws Exception
 	{
 		new CreatePaperResults(args.length > 0 && args[0].equals("debug"));
+		//		
+		if (Window.getWindows().length > 0)
+			System.out.println("\nDone - Waiting for Windows to close");
+		SwingUtil.waitWhileWindowsVisible();
 		System.exit(0);
 	}
 }

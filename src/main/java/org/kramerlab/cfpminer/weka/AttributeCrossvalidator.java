@@ -22,7 +22,9 @@ import org.mg.javalib.util.StringUtil;
 
 import weka.classifiers.AbstractClassifier;
 import weka.classifiers.Classifier;
+import weka.classifiers.bayes.NaiveBayes;
 import weka.classifiers.functions.SMO;
+import weka.classifiers.meta.Vote;
 import weka.classifiers.trees.RandomForest;
 import weka.core.AdditionalMeasureProducer;
 import weka.core.Attribute;
@@ -93,7 +95,7 @@ public class AttributeCrossvalidator
 			this.classifier = classifier;
 			if (FORCE_SPARSE != null)
 				sparse = FORCE_SPARSE;
-			else if (classifier instanceof SMO)
+			else if (classifier instanceof SMO || classifier instanceof Vote)
 				sparse = true;
 			this.attributeProvider = attributeProvider;
 		}
@@ -238,9 +240,19 @@ public class AttributeCrossvalidator
 		for (String cl : c)
 		{
 			if (cl.equals("RaF"))
+				throw new IllegalArgumentException("random forest v3.7.12 now called RnF");
+			else if (cl.equals("RnF"))
 				this.classifiers[idx++] = new RandomForest();
 			else if (cl.equals("SMO"))
 				this.classifiers[idx++] = new SMO();
+			else if (cl.equals("NBy"))
+				this.classifiers[idx++] = new NaiveBayes();
+			else if (cl.equals("Ens"))
+			{
+				Vote ens = new Vote();
+				ens.setClassifiers(new Classifier[] { new RandomForest(), new SMO(), new NaiveBayes() });
+				this.classifiers[idx++] = ens;
+			}
 			//			else if (cl.equals("LibSVM"))
 			//				this.classifiers[idx++] = new LibSVM();
 			else

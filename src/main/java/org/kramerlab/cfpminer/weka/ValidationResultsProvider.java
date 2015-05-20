@@ -33,6 +33,21 @@ import com.jgoodies.forms.layout.FormLayout;
 
 public class ValidationResultsProvider
 {
+	//	public static final String RESULTS_FOLDER = "/home/martin/workspace/CFPMiner/results_r5_all/";
+	//	public static final String RESULTS_MERGED_FOLDER = "/home/martin/workspace/CFPMiner/results_r5_all_merged/";
+
+	//	public static final String RESULTS_FOLDER = "/home/martin/workspace/CFPMiner/results_nb/";
+	//	public static final String RESULTS_MERGED_FOLDER = "/home/martin/workspace/CFPMiner/results_nb_merged/";
+
+	public static final String RESULTS_FOLDER = "/home/martin/workspace/CFPMiner/results_rnf/";
+	public static final String RESULTS_MERGED_FOLDER = "/home/martin/workspace/CFPMiner/results_rnf_merged/";
+
+	//	public static final String RESULTS_FOLDER = "/home/martin/workspace/CFPMiner/results_small/";
+	//	public static final String RESULTS_MERGED_FOLDER = "/home/martin/workspace/CFPMiner/results_small_merged/";
+
+	//    public static final String RESULTS_FOLDER = "/home/martin/workspace/CFPMiner/results_r5_best_no_resample/";
+	//    public static final String RESULTS_MERGED_FOLDER = "/home/martin/workspace/CFPMiner/results_r5_best_no_resample_merged/";
+
 	File arff;
 	ResultSet allResults;
 	ResultSet results;
@@ -41,7 +56,7 @@ public class ValidationResultsProvider
 	static HashMap<String, String> wekaAttributes = new LinkedHashMap<>();
 	static
 	{
-		setPerformanceMeasures(new String[] { "AUC", "Accuracy", "Sensitivity", "Selectivity" }); //"Specificity"
+		setPerformanceMeasures(new String[] { "Accuracy", "AUC", "AUP" }); //"Sensitivity", "Selectivity"
 	}
 
 	public static void setPerformanceMeasures(String perf[])
@@ -65,6 +80,19 @@ public class ValidationResultsProvider
 			wekaAttributes.put("IR_precision", "Selectivity");
 		if (ArrayUtil.indexOf(perf, "Specificity") != -1)
 			wekaAttributes.put("True_negative_rate", "Specificity");
+		if (ArrayUtil.indexOf(perf, "FMeasure") != -1)
+			wekaAttributes.put("F_measure", "FMeasure");
+		if (ArrayUtil.indexOf(perf, "TP") != -1)
+			wekaAttributes.put("Num_true_positives", "TP");
+		if (ArrayUtil.indexOf(perf, "TN") != -1)
+			wekaAttributes.put("Num_true_negatives", "TN");
+		if (ArrayUtil.indexOf(perf, "FP") != -1)
+			wekaAttributes.put("Num_false_positives", "FP");
+		if (ArrayUtil.indexOf(perf, "FN") != -1)
+			wekaAttributes.put("Num_false_negatives", "FN");
+		if (ArrayUtil.indexOf(perf, "AUP") != -1)
+			wekaAttributes.put("Area_under_PRC", "AUP");
+
 	}
 
 	public ValidationResultsProvider(String... arffResultFiles) throws Exception
@@ -84,7 +112,19 @@ public class ValidationResultsProvider
 		{
 			int idx = results.addResult();
 			for (String wp : wekaAttributes.keySet())
-				results.setResultValue(idx, wekaAttributes.get(wp), allResults.getResultValue(idx, wp));
+			{
+				Object val = allResults.getResultValue(idx, wp);
+				if (wp.equals("Key_Scheme_options") && val.toString().contains("RandomForest"))
+				{
+					Integer version = ((Double) allResults.getResultValue(idx, "Key_Scheme_version_ID")).intValue();
+					if (version >= 4)
+					{
+						val = val.toString().replaceAll("RandomForest", "RandomFores2");
+						//						System.err.println("changed rf");
+					}
+				}
+				results.setResultValue(idx, wekaAttributes.get(wp), val);
+			}
 		}
 		if (wekaAttributes.containsKey("Percent_correct"))
 			for (int i = 0; i < results.getNumResults(); i++)
@@ -308,12 +348,6 @@ public class ValidationResultsProvider
 		});
 		return test;
 	}
-
-	public static final String RESULTS_FOLDER = "/home/martin/workspace/CFPMiner/results_r5_all/";
-	public static final String RESULTS_MERGED_FOLDER = "/home/martin/workspace/CFPMiner/results_r5_all_merged/";
-
-	//    public static final String RESULTS_FOLDER = "/home/martin/workspace/CFPMiner/results_r5_best_no_resample/";
-	//    public static final String RESULTS_MERGED_FOLDER = "/home/martin/workspace/CFPMiner/results_r5_best_no_resample_merged/";
 
 	public static boolean resultsExist(String datasetName, CFPMiner miner, String classifier)
 	{

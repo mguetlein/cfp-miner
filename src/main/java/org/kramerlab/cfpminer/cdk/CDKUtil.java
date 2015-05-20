@@ -83,4 +83,5 @@ public class CDKUtil
 		if (parseSmiles(smiles) == null || parseSmiles(smiles).getAtomCount() == 0)
 			throw new InvalidSmilesException("not a valid smiles: '" + smiles + "'");
 	}
+
 }

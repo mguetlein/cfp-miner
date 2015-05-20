@@ -121,46 +121,6 @@ public class CFPDepict
 		ImageIO.write((RenderedImage) image, "PNG", new File(pngFile));
 	}
 
-	//	public static BufferedImage depictMatch(IAtomContainer mol, int atoms[], boolean highlightOutgoingBonds, Color col,
-	//			boolean crop, int maxSize) throws Exception
-	//	{
-	//		IAtomContainerSet set = ConnectivityChecker.partitionIntoMolecules(mol);
-	//		BufferedImage image = null;
-	//		if (set.getAtomContainerCount() < 2)
-	//			image = depictMatchConnected(mol, atoms, highlightOutgoingBonds, col, crop, maxSize);
-	//		else
-	//		{
-	//			int minAtomIdx = ArrayUtil.getMinMax(atoms)[0];
-	//			List<ImageIcon> icons = new ArrayList<ImageIcon>();
-	//			atoms = Arrays.copyOf(atoms, atoms.length);
-	//			for (int i = 0; i < set.getAtomContainerCount(); i++)
-	//			{
-	//				if (minAtomIdx < 0 || minAtomIdx >= set.getAtomContainer(i).getAtomCount())
-	//				{
-	//					if (!crop)
-	//						icons.add(new ImageIcon(depict(set.getAtomContainer(i), -1)));
-	//				}
-	//				else
-	//				{
-	//					image = depictMatchConnected(set.getAtomContainer(i), atoms, highlightOutgoingBonds, col, crop,
-	//							crop ? maxSize : -1);
-	//					icons.add(new ImageIcon(image));
-	//				}
-	//				minAtomIdx -= set.getAtomContainer(i).getAtomCount();
-	//				for (int j = 0; j < atoms.length; j++)
-	//					atoms[j] -= set.getAtomContainer(i).getAtomCount();
-	//			}
-	//			if (!crop)
-	//			{
-	//				image = (BufferedImage) new MultiImageIcon(icons, Layout.horizontal, Orientation.center, 2).getImage();
-	//				if (maxSize != -1)
-	//					image = (BufferedImage) ImageLoader.getShrinkedImage(new ImageIcon(image), maxSize, maxSize)
-	//							.getImage();
-	//			}
-	//		}
-	//		return image;
-	//	}
-
 	public static String COLOR_PROP = "colorProp";
 
 	public static BufferedImage depictMatch(IAtomContainer mol, int atoms[], boolean highlightOutgoingBonds, Color col,
