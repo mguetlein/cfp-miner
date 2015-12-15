@@ -12,9 +12,10 @@ import org.kramerlab.cfpminer.CFPtoArff;
 import org.mg.cdklib.cfp.CFPMiner;
 import org.mg.cdklib.cfp.CFPType;
 import org.mg.cdklib.cfp.FeatureSelection;
-import org.mg.cdklib.data.DataLoader;
 import org.mg.cdklib.data.CDKDataset;
+import org.mg.cdklib.data.DataLoader;
 import org.mg.javalib.util.ListUtil;
+import org.mg.wekalib.attribute_evaluation.AttributeCrossvalidator;
 
 public class CFPValidate
 {
@@ -123,9 +124,9 @@ public class CFPValidate
 	public static void validate(String datasetName, int run, String outfile, String classifiers[], List<?> endpoints,
 			CFPMiner... ecfps) throws Exception
 	{
-		AttributeProvidingCFPMiner[] apCFP = new AttributeProvidingCFPMiner[ecfps.length];
+		CFPMinerAttributes[] apCFP = new CFPMinerAttributes[ecfps.length];
 		for (int i = 0; i < apCFP.length; i++)
-			apCFP[i] = new AttributeProvidingCFPMiner(ecfps[i]);
+			apCFP[i] = new CFPMinerAttributes(ecfps[i]);
 		AttributeCrossvalidator cv = new AttributeCrossvalidator(datasetName, ListUtil.cast(String.class, endpoints),
 				apCFP);
 		cv.setOutfile(outfile);

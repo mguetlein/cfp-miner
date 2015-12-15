@@ -18,7 +18,7 @@ import java.util.Locale;
 import java.util.Set;
 
 import org.jfree.chart.ChartPanel;
-import org.kramerlab.cfpminer.CFPUtil;
+import org.kramerlab.cfpminer.CFPTest;
 import org.mg.cdklib.cfp.CFPType;
 import org.mg.cdklib.cfp.FeatureSelection;
 import org.mg.cdklib.data.DataLoader;
@@ -326,7 +326,7 @@ public class CreatePaperResults
 				CFPType t = type(r, i);
 				FeatureSelection f = feat(r, i);
 				Integer s = size(r, i);
-				double run = CFPUtil.getRuntime(d, t, f, s == null ? 0 : s, a, true);
+				double run = CFPTest.getRuntime(d, t, f, s == null ? 0 : s, a, true);
 				r.setResultValue(i, "Time", run);// 5 + new Random().nextDouble() * 20.0);
 			}
 		}

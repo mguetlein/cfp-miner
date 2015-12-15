@@ -11,17 +11,17 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Random;
 
-import org.kramerlab.cfpminer.weka.AttributeCrossvalidator;
 import org.kramerlab.cfpminer.weka.CFPValidate;
 import org.mg.cdklib.CDKConverter;
 import org.mg.cdklib.cfp.CFPFragment;
 import org.mg.cdklib.cfp.CFPMiner;
 import org.mg.cdklib.cfp.CFPType;
 import org.mg.cdklib.cfp.FeatureSelection;
-import org.mg.cdklib.data.DataLoader;
 import org.mg.cdklib.data.CDKDataset;
+import org.mg.cdklib.data.DataLoader;
 import org.mg.javalib.util.ListUtil;
 import org.mg.javalib.util.StopWatchUtil;
+import org.mg.wekalib.attribute_evaluation.AttributeCrossvalidator;
 
 import weka.classifiers.Classifier;
 import weka.classifiers.bayes.NaiveBayes;
@@ -34,7 +34,7 @@ import weka.core.SparseInstance;
 import weka.filters.unsupervised.instance.NonSparseToSparse;
 
 @SuppressWarnings("unchecked")
-public class CFPUtil
+public class CFPTest
 {
 
 	public static void amesRuntimeTest() throws Exception

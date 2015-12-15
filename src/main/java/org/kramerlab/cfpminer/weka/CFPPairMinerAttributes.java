@@ -5,13 +5,13 @@ import java.util.List;
 import org.mg.cdklib.cfp.CFPPairMiner;
 import org.mg.javalib.util.ArrayUtil;
 
-public class AttributeProvidingCFPPairMiner extends AttributeProvidingCFPMiner
+public class CFPPairMinerAttributes extends CFPMinerAttributes
 {
 	private static final long serialVersionUID = 1L;
 
 	protected CFPPairMiner miner;
 
-	public AttributeProvidingCFPPairMiner(CFPPairMiner miner)
+	public CFPPairMinerAttributes(CFPPairMiner miner)
 	{
 		super(miner);
 	}

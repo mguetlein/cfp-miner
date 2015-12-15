@@ -5,14 +5,15 @@ import java.util.Set;
 
 import org.mg.cdklib.cfp.CFPMiner;
 import org.mg.javalib.util.ArrayUtil;
+import org.mg.wekalib.attribute_evaluation.AttributeProvider;
 
-public class AttributeProvidingCFPMiner implements AttributeProvider
+public class CFPMinerAttributes implements AttributeProvider
 {
 	private static final long serialVersionUID = 1L;
 
 	protected CFPMiner miner;
 
-	public AttributeProvidingCFPMiner(CFPMiner miner)
+	public CFPMinerAttributes(CFPMiner miner)
 	{
 		this.miner = miner;
 	}
