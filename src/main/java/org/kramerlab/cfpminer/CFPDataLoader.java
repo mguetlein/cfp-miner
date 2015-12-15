@@ -15,6 +15,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import org.kramerlab.cfpminer.cdk.CDKUtil;
 import org.mg.javalib.datamining.ResultSet;
 import org.mg.javalib.datamining.ResultSetIO;
 import org.mg.javalib.util.ArrayUtil;
@@ -22,6 +23,7 @@ import org.mg.javalib.util.CountedSet;
 import org.mg.javalib.util.FileUtil;
 import org.mg.javalib.util.FileUtil.CSVFile;
 import org.openscience.cdk.ChemFile;
+import org.openscience.cdk.exception.CDKException;
 import org.openscience.cdk.interfaces.IAtomContainer;
 import org.openscience.cdk.interfaces.IChemFile;
 import org.openscience.cdk.interfaces.IChemObject;
@@ -92,6 +94,7 @@ public class CFPDataLoader
 		citation.get(dataset).add(s);
 	}
 
+	public static String OTHER_DATASETS = "Other";
 	public static String BALANCED_DATASETS = "Balanced";
 	public static String VS_DATASETS = "Virtual-Screening";
 	private static HashMap<String, String> datasetCategory = new HashMap<>();
@@ -129,7 +132,7 @@ public class CFPDataLoader
 		datasetSubCategory.put(n, n);
 
 		n = "AMES";
-		sdfDatasets.put(n, "cas_4337.ob.sdf");
+		sdfDatasets.put(n, "cas_4337.ob.noH.sdf");
 		sdfEndpoints.put(n, "Ames test categorisation");
 		addDatasetWeblink(n, n, "http://www.cheminformatics.org/datasets/bursi",
 				"4337 Structures with AMES Categorisation");
@@ -314,6 +317,26 @@ public class CFPDataLoader
 		datasetActivityDesc.put("MUV_" + 858, "D1 rec. (GPCR) Allosteric Modulator");
 		datasetActivityDesc.put("MUV_" + 859, "M1 rec. (GPCR) Allosteric Modulator");
 
+		//		n = "REID";
+		//		datasetActivityDesc.put(n, "norm induction >= 11");
+		//		sdfDatasets.put(n, "all_isoxazoles.sdf");
+		//		sdfEndpoints.put(n, "activity");
+		//		addDatasetCitation(n, "-", "-");
+		//		addDatasetWeblink(n, "-", "-", "-");
+		//		datasetCategory.put(n, OTHER_DATASETS);
+		//		datasetSubCategory.put(n, n);
+
+		for (int i : new int[] { 2, 3, 4, 11 })
+		{
+			n = "REID-" + i;
+			datasetActivityDesc.put(n, "norm induction >= " + i);
+			sdfDatasets.put(n, "reid-6.sdf");
+			sdfEndpoints.put(n, "activity" + i);
+			addDatasetCitation(n, "-", "-");
+			addDatasetWeblink(n, "-", "-", "-");
+			datasetCategory.put(n, OTHER_DATASETS);
+			datasetSubCategory.put(n, n);
+		}
 	}
 
 	public String[] allDatasets()
@@ -330,11 +353,67 @@ public class CFPDataLoader
 	{
 		List<String> smiles;
 		List<String> endpoints;
+		List<String> warnings;
 
-		public Dataset(List<String> smiles, List<String> endpoints)
+		public Dataset(List<String> smiles, List<String> endpoints, List<String> warnings)
 		{
-			this.smiles = smiles;
-			this.endpoints = endpoints;
+
+			try
+			{
+				HashMap<String, HashSet<String>> inchiToActivity = new HashMap<>();
+				int idx = 0;
+				for (String smi : smiles)
+				{
+					String inch = CDKUtil.toInchi(smi);
+					if (!inchiToActivity.containsKey(inch))
+						inchiToActivity.put(inch, new HashSet<String>());
+					inchiToActivity.get(inch).add(endpoints.get(idx));
+					idx++;
+				}
+
+				List<String> uSmiles = new ArrayList<>();
+				List<String> uEndpoints = new ArrayList<>();
+				HashSet<String> inchiAdded = new HashSet<>();
+				int skipEq = 0;
+				int skipDiff = 0;
+				for (int i = 0; i < smiles.size(); i++)
+				{
+					//					System.out.println(i + " " + smiles.get(i));
+					String inchi = CDKUtil.toInchi(smiles.get(i));
+					if (inchiAdded.contains(inchi))
+					{
+						skipEq++;
+						//						System.out.println("skip equal value duplicate: " + i + " " + inchiToActivity.get(inchi) + " "
+						//								+ smiles.get(i) + " " + inchi);
+					}
+					else if (inchiToActivity.get(inchi).size() > 1)
+					{
+						skipDiff++;
+						//						System.out.println("skip different value duplicate: " + i + " " + inchiToActivity.get(inchi)
+						//								+ " " + smiles.get(i) + " " + inchi);
+					}
+					else
+					{
+						uSmiles.add(smiles.get(i));
+						uEndpoints.add(endpoints.get(i));
+						inchiAdded.add(inchi);
+					}
+				}
+				if (skipEq > 0)
+					warnings.add("Removed " + skipEq
+							+ " duplicate occurences of compounds (with equal endpoint values).");
+				if (skipDiff > 0)
+					warnings.add("Removed " + skipDiff
+							+ " compounds that occured multiple times with different endpoint values.");
+
+				this.smiles = uSmiles;
+				this.endpoints = uEndpoints;
+				this.warnings = warnings;
+			}
+			catch (CDKException e)
+			{
+				throw new RuntimeException(e);
+			}
 		}
 
 		public List<String> getEndpoints()
@@ -399,10 +478,10 @@ public class CFPDataLoader
 		if (!f.exists())
 		{
 			set = getInfo(name);
-			ResultSetIO.printToFile(f, set, true);
+			ResultSetIO.printToTxtFile(f, set, true);
 		}
 		else
-			set = ResultSetIO.parseFromFile(f);
+			set = ResultSetIO.parseFromTxtFile(f);
 
 		int idx = 0;
 		for (String n : name)
@@ -482,6 +561,31 @@ public class CFPDataLoader
 		return datasets.get(name);
 	}
 
+	public boolean hasDuplicates(String name)
+	{
+		Integer run = 1;
+		if (sdfDatasets.containsKey(name))
+			run = null;
+		if (run != null)
+		{
+			if (!resampleDecoys)
+				run = 1;
+			name = name + "_r" + String.format("%02d", run);
+		}
+
+		try
+		{
+			if (sdfDatasets.containsKey(name))
+				return hasDuplicatesSDF(name);
+			else
+				return hasDuplicatesCSV(name);
+		}
+		catch (Exception e)
+		{
+			throw new RuntimeException(e);
+		}
+	}
+
 	private Dataset getDatasetFromSDF(String name) throws Exception
 	{
 		List<String> endpoints = new ArrayList<>();
@@ -491,11 +595,17 @@ public class CFPDataLoader
 				dataFolder + File.separator + sdfDatasets.get(name))));
 		IChemFile content = (IChemFile) reader.read((IChemObject) new ChemFile());
 		String endpoint = sdfEndpoints.get(name);
+		int invalidCompound = 0;
+		int missingEndpoint = 0;
 		for (IAtomContainer a : ChemFileManipulator.getAllAtomContainers(content))
-			if (a.getAtomCount() > 0 && a.getProperty(endpoint) != null
-					&& !a.getProperty(endpoint).toString().equals("unspecified")
-					&& !a.getProperty(endpoint).toString().equals("blank")
-					&& !a.getProperty(endpoint).toString().equals("inconclusive"))
+		{
+			if (a.getAtomCount() == 0)
+				invalidCompound++;
+			else if (a.getProperty(endpoint) == null || a.getProperty(endpoint).toString().equals("unspecified")
+					|| a.getProperty(endpoint).toString().equals("blank")
+					|| a.getProperty(endpoint).toString().equals("inconclusive"))
+				missingEndpoint++;
+			else
 			{
 				String smi = new SmilesGenerator().create(a);
 				//				CDKUtil.setMolForSmiles(smi, a);
@@ -516,9 +626,35 @@ public class CFPDataLoader
 				smiles.add(smi);
 				endpoints.add(a.getProperty(endpoint).toString());
 			}
+		}
 		reader.close();
 
-		return new Dataset(smiles, endpoints);
+		List<String> warnings = new ArrayList<>();
+		if (invalidCompound > 0)
+			warnings.add("Removed " + invalidCompound + " compounds that could not be read by the CDK library.");
+		if (missingEndpoint > 0)
+			warnings.add("Removed " + missingEndpoint + " compounds with missing/invalid enpoint values.");
+		return new Dataset(smiles, endpoints, warnings);
+	}
+
+	private boolean hasDuplicatesSDF(String name) throws Exception
+	{
+		List<String> smiles = new ArrayList<>();
+		ISimpleChemObjectReader reader = new ReaderFactory().createReader(new InputStreamReader(new FileInputStream(
+				dataFolder + File.separator + sdfDatasets.get(name))));
+		IChemFile content = (IChemFile) reader.read((IChemObject) new ChemFile());
+		String endpoint = sdfEndpoints.get(name);
+		for (IAtomContainer a : ChemFileManipulator.getAllAtomContainers(content))
+			if (a.getAtomCount() > 0 && a.getProperty(endpoint) != null
+					&& !a.getProperty(endpoint).toString().equals("unspecified")
+					&& !a.getProperty(endpoint).toString().equals("blank")
+					&& !a.getProperty(endpoint).toString().equals("inconclusive"))
+			{
+				String smi = new SmilesGenerator().create(a);
+				smiles.add(CDKUtil.toInchi(smi));
+			}
+		reader.close();
+		return CountedSet.create(smiles).getMaxCount(false) > 1;
 	}
 
 	private Dataset getDatasetFromCSV(String name)
@@ -533,7 +669,16 @@ public class CFPDataLoader
 			endpoints.add(csv.content.get(i)[1]);
 		}
 
-		return new Dataset(smiles, endpoints);
+		return new Dataset(smiles, endpoints, new ArrayList<String>());
+	}
+
+	private boolean hasDuplicatesCSV(String name) throws CDKException
+	{
+		List<String> smiles = new ArrayList<>();
+		CSVFile csv = FileUtil.readCSV(dataFolder + File.separator + name + ".csv");
+		for (int i = 1; i < csv.content.size(); i++)
+			smiles.add(CDKUtil.toInchi(csv.content.get(i)[0]));
+		return CountedSet.create(smiles).getMaxCount(false) > 1;
 	}
 
 	public static Comparator<Object> CFPDataComparator = new Comparator<Object>()
@@ -567,6 +712,18 @@ public class CFPDataLoader
 		String data[] = d.allDatasets();
 		Arrays.sort(data, CFPDataComparator);
 		System.out.println(ArrayUtil.toString(data));
+		//data = new String[] { "NCTRER" };
+		for (String dat : data)
+		{
+			Dataset da = d.getDataset(dat);
+			if (!da.warnings.isEmpty())
+			{
+				System.out.println(dat + " Warnings:");
+				for (String warn : da.warnings)
+					System.out.println("* " + warn);
+				System.out.println();
+			}
+		}
 
 	}
 
@@ -581,7 +738,7 @@ public class CFPDataLoader
 	{
 		Integer activeIdx = null;
 		for (int i = 0; i < classValues.length; i++)
-			if (classValues[i].equals("active") || classValues[i].equals("mutagen"))
+			if (classValues[i].equals("active") || classValues[i].equals("mutagen") || classValues[i].equals("1"))
 				activeIdx = i;
 		if (activeIdx == null)
 			throw new IllegalStateException("what is active? " + ArrayUtil.toString(classValues));

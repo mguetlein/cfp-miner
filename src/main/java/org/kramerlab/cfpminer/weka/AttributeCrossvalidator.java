@@ -46,21 +46,6 @@ public class AttributeCrossvalidator
 	public static boolean RUNTIME_DEBUG = false;
 	public static Boolean FORCE_SPARSE = null;
 
-	public static interface AttributeProvider extends Serializable
-	{
-		public String getName();
-
-		public int getNumAttributes();
-
-		public String getAttributeName(int a);
-
-		public List<String> getAttributeDomain(int a);
-
-		public double getAttributeValue(int i, int a);
-
-		public void applyFilter(Set<Integer> filterSubset);
-	}
-
 	private static int maxBuildCount = -1;
 	private static HashMap<Thread, String> currentDatasetName = new HashMap<Thread, String>();
 	private static HashMap<Thread, Integer> currentRun = new HashMap<Thread, Integer>();
@@ -311,7 +296,18 @@ public class AttributeCrossvalidator
 		}
 
 		int numFolds = 10;
+		//		CrossValidationResultProducer cvrp = new AppDomainCrossValidationResultProducer()
+		//		{
+		//			@Override
+		//			public AppDomainModel getAppDomainModel(int run)
+		//			{
+		//				if (run != 1)
+		//					throw new RuntimeException("not yet implemented " + run);
+		//				return new TanimotoDistanceAppDomainModel(provider[0]);
+		//			}
+		//		};
 		CrossValidationResultProducer cvrp = new CrossValidationResultProducer();
+
 		cvrp.setNumFolds(numFolds);
 		cvrp.setSplitEvaluator(se);
 
@@ -395,6 +391,12 @@ public class AttributeCrossvalidator
 					}
 
 					@Override
+					public double getTanimotoSimilarity(int i, int j)
+					{
+						return 1;
+					}
+
+					@Override
 					public List<String> getAttributeDomain(int a)
 					{
 						return ArrayUtil.toList(new String[] { "ene", "mene" });
@@ -410,6 +412,7 @@ public class AttributeCrossvalidator
 					public void applyFilter(Set<Integer> filterSubset)
 					{
 					}
+
 				});
 	}
 

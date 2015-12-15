@@ -4,8 +4,8 @@ import java.io.File;
 import java.util.List;
 
 import org.mg.javalib.util.ArrayUtil;
-import org.mg.javalib.weka.ArffWritable;
-import org.mg.javalib.weka.ArffWriter;
+import org.mg.wekalib.data.ArffWritable;
+import org.mg.wekalib.data.ArffWriter;
 import org.openscience.cdk.interfaces.IAtomContainer;
 
 import weka.core.Instances;
@@ -69,7 +69,7 @@ public class CFPtoArff
 			@Override
 			public int getNumAttributes()
 			{
-				return miner.hashCodeToCompound.size() + 1;
+				return miner.fragmentToCompound.size() + 1;
 			}
 
 			@Override
@@ -81,7 +81,7 @@ public class CFPtoArff
 			@Override
 			public String getAttributeValueSpace(int attribute)
 			{
-				if (attribute == miner.hashCodeToCompound.size())
+				if (attribute == miner.fragmentToCompound.size())
 					return ArrayUtil.toString(miner.getClassValues(), ",", "{", "}");
 				else
 					return "{0,1}";
@@ -92,18 +92,18 @@ public class CFPtoArff
 			{
 				if (testMol == null)
 				{
-					if (attribute == miner.hashCodeToCompound.size())
+					if (attribute == miner.fragmentToCompound.size())
 						return miner.getEndpoints().get(instance);
 					else
-						return miner.getHashcodesForCompound(instance).contains(miner.getHashcodeViaIdx(attribute)) ? "1"
+						return miner.getFragmentsForCompound(instance).contains(miner.getFragmentViaIdx(attribute)) ? "1"
 								: "0";
 				}
 				else
 				{
-					if (attribute == miner.hashCodeToCompound.size())
+					if (attribute == miner.fragmentToCompound.size())
 						return "?";
 					else
-						return miner.getHashcodesForTestCompound(testMol).contains(miner.getHashcodeViaIdx(attribute)) ? "1"
+						return miner.getFragmentsForTestCompound(testMol).contains(miner.getFragmentViaIdx(attribute)) ? "1"
 								: "0";
 				}
 			}
@@ -111,10 +111,10 @@ public class CFPtoArff
 			@Override
 			public String getAttributeName(int attribute)
 			{
-				if (attribute == miner.hashCodeToCompound.size())
+				if (attribute == miner.fragmentToCompound.size())
 					return endpointName;
 				else
-					return miner.getHashcodeViaIdx(attribute) + "";
+					return miner.getFragmentViaIdx(attribute) + "";
 
 			}
 

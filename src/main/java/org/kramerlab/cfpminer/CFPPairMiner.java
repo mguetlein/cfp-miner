@@ -20,7 +20,9 @@ import org.openscience.cdk.interfaces.IAtomContainer;
 
 public class CFPPairMiner extends CFPMiner
 {
-	transient List<Pair> pairs;
+	private static final long serialVersionUID = 1L;
+
+	private transient List<Pair> pairs;
 
 	public CFPPairMiner(List<String> endpoints) throws CDKException
 	{
@@ -29,25 +31,25 @@ public class CFPPairMiner extends CFPMiner
 
 	public class Pair
 	{
-		int h1;
-		int h2;
+		CFPFragment f1;
+		CFPFragment f2;
 		Set<Integer> commonCompounds;
 		Set<Integer> commonAdjacentCompounds;
 		double pCommon;
 		double pCommonAdj;
 		double pDiff;
 
-		public Pair(int h1, int h2, Set<Integer> commonCompounds, Set<Integer> commonAdjacentCompounds)
+		public Pair(CFPFragment f1, CFPFragment f2, Set<Integer> commonCompounds, Set<Integer> commonAdjacentCompounds)
 		{
-			if (h2 < h1)
+			if (f2.getId() < f1.getId())
 			{
-				this.h1 = h2;
-				this.h2 = h1;
+				this.f1 = f2;
+				this.f2 = f1;
 			}
 			else
 			{
-				this.h1 = h1;
-				this.h2 = h2;
+				this.f1 = f1;
+				this.f2 = f2;
 			}
 			this.commonCompounds = commonCompounds;
 			this.commonAdjacentCompounds = commonAdjacentCompounds;
@@ -59,13 +61,13 @@ public class CFPPairMiner extends CFPMiner
 
 		public boolean equals(Object o)
 		{
-			return (o instanceof Pair && h1 == ((Pair) o).h1 && h2 == ((Pair) o).h2);
+			return (o instanceof Pair && f1 == ((Pair) o).f1 && f2 == ((Pair) o).f2);
 		}
 
 		@Override
 		public int hashCode()
 		{
-			return HashUtil.hashCode(h1, h2);
+			return HashUtil.hashCode(f1, f2);
 		}
 
 		@Override
@@ -85,7 +87,12 @@ public class CFPPairMiner extends CFPMiner
 
 		public String getName()
 		{
-			return "pair-" + h1 + "-" + h2;
+			return "pair-" + f1 + "-" + f2;
+		}
+
+		public boolean isCompoundAdjacent(Integer compound)
+		{
+			return commonAdjacentCompounds.contains(compound);
 		}
 
 	}
@@ -112,8 +119,8 @@ public class CFPPairMiner extends CFPMiner
 	@SuppressWarnings("unchecked")
 	protected void minePairs(Set<Integer> compoundSubset)
 	{
-		if (hashcodeList == null)
-			getHashcodeViaIdx(0);
+		if (fragmentList == null)
+			getFragmentViaIdx(0);
 
 		domain = new ArrayList<String>(new HashSet<String>(endpoints));
 		List<String> subsetEndpoints = new ArrayList<String>();
@@ -129,35 +136,35 @@ public class CFPPairMiner extends CFPMiner
 
 		int minFrequency = Math.max(1, (int) (compoundSubset.size() * 0.05));
 		System.out.println("min-freq for pairs: " + minFrequency);
-		for (int i = 0; i < hashcodeList.length - 1; i++)
+		for (int i = 0; i < fragmentList.length - 1; i++)
 		{
 			if (i % 100 == 0)
 				System.out.println(i);
 
-			Integer h1 = hashcodeList[i];
-			if (hashCodeToCompound.get(h1).size() < minFrequency)
+			CFPFragment f1 = fragmentList[i];
+			if (fragmentToCompound.get(f1).size() < minFrequency)
 				continue;
-			Set<Integer> h1Compounds = (Set<Integer>) hashCodeToCompound.get(h1).clone();
+			Set<Integer> h1Compounds = (Set<Integer>) fragmentToCompound.get(f1).clone();
 			h1Compounds.retainAll(compoundSubset);
 			if (h1Compounds.size() < minFrequency)
 				continue;
 
-			for (int j = i + 1; j < hashcodeList.length; j++)
+			for (int j = i + 1; j < fragmentList.length; j++)
 			{
-				Integer h2 = hashcodeList[j];
-				if (hashCodeToCompound.get(h2).size() < minFrequency)
+				CFPFragment f2 = fragmentList[j];
+				if (fragmentToCompound.get(f2).size() < minFrequency)
 					continue;
 				HashSet<Integer> intersect = new HashSet<Integer>(h1Compounds);
-				intersect.retainAll(hashCodeToCompound.get(h2));
+				intersect.retainAll(fragmentToCompound.get(f2));
 				if (intersect.size() < minFrequency)
 					continue;
-				Set<Integer> adj = getAdjacent(h1, h2, intersect);
+				Set<Integer> adj = getAdjacent(f1, f2, intersect);
 				if (adj == null) // overlap
 					continue;
 				if (adj.size() < minFrequency)
 					continue;
 				//				System.out.println(numAdj + "/" + intersect.size());
-				Pair pair = new Pair(h1, h2, intersect, adj);
+				Pair pair = new Pair(f1, f2, intersect, adj);
 				//				pairAdjacent.put(new Pair(h1, h2), adj);
 				if (pair.pDiff > 0.1)
 					pairs.add(pair);
@@ -179,7 +186,7 @@ public class CFPPairMiner extends CFPMiner
 		}
 	}
 
-	private Set<Integer> getAdjacent(Integer h1, Integer h2, HashSet<Integer> intersectCompounds)
+	private Set<Integer> getAdjacent(CFPFragment h1, CFPFragment h2, HashSet<Integer> intersectCompounds)
 	{
 		try
 		{
@@ -218,32 +225,6 @@ public class CFPPairMiner extends CFPMiner
 		}
 	}
 
-	@Override
-	public int getNumAttributes()
-	{
-		return super.getNumAttributes() + pairs.size();
-	}
-
-	@Override
-	public String getAttributeName(int a)
-	{
-		if (a < super.getNumAttributes())
-			return super.getAttributeName(a);
-		else
-			return pairs.get(a - super.getNumAttributes()).getName();
-	}
-
-	@Override
-	public double getAttributeValue(int i, int a)
-	{
-		if (a < super.getNumAttributes())
-			return super.getAttributeValue(i, a);
-		if (pairs.get(a - super.getNumAttributes()).commonAdjacentCompounds.contains(i))
-			return 1.0;
-		else
-			return 0.0;
-	}
-
 	public static void demo() throws Exception
 	{
 		String datasetName = "NCTRER";
@@ -270,5 +251,15 @@ public class CFPPairMiner extends CFPMiner
 	public static void main(String[] args) throws Exception
 	{
 		demo();
+	}
+
+	public int getNumPairs()
+	{
+		return pairs.size();
+	}
+
+	public Pair getPair(int idx)
+	{
+		return pairs.get(idx);
 	}
 }

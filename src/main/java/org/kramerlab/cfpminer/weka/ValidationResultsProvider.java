@@ -15,15 +15,18 @@ import javax.swing.JScrollPane;
 
 import org.jfree.chart.ChartPanel;
 import org.kramerlab.cfpminer.CFPMiner;
+import org.kramerlab.cfpminer.CFPMiner.CFPType;
+import org.kramerlab.cfpminer.CFPMiner.FeatureSelection;
 import org.mg.javalib.datamining.Result;
 import org.mg.javalib.datamining.ResultSet;
 import org.mg.javalib.datamining.ResultSetBoxPlot;
 import org.mg.javalib.datamining.ResultSetFilter;
 import org.mg.javalib.datamining.ResultSetLinePlot;
 import org.mg.javalib.datamining.ResultSetLinePlot.XLabelsRotation;
+import org.mg.javalib.datamining.WekaResultSetUtil;
 import org.mg.javalib.util.ArrayUtil;
 import org.mg.javalib.util.SwingUtil;
-import org.mg.javalib.weka.MergeArffFiles;
+import org.mg.wekalib.data.MergeArffFiles;
 
 import weka.core.Instances;
 import weka.gui.experiment.ResultsPanel;
@@ -52,11 +55,14 @@ public class ValidationResultsProvider
 	ResultSet allResults;
 	ResultSet results;
 
+	public static final String[] ORIG_PERFORMANCE_MEASURES = new String[] { "Accuracy", "AUC", "AUPRC", "Sensitivity",
+			"Selectivity" };
+
 	static String performanceMeasures[];
 	static HashMap<String, String> wekaAttributes = new LinkedHashMap<>();
 	static
 	{
-		setPerformanceMeasures(new String[] { "Accuracy", "AUC", "AUP" }); //"Sensitivity", "Selectivity"
+		setPerformanceMeasures(ORIG_PERFORMANCE_MEASURES);
 	}
 
 	public static void setPerformanceMeasures(String perf[])
@@ -64,7 +70,7 @@ public class ValidationResultsProvider
 		performanceMeasures = perf;
 
 		wekaAttributes.clear();
-		wekaAttributes.put("Key_Scheme_options", "Method");
+		//		wekaAttributes.put("Key_Scheme_options", "Method");
 		wekaAttributes.put("Key_Dataset", "Dataset");
 		wekaAttributes.put("Key_Run", "Run");
 		wekaAttributes.put("Key_Fold", "Fold");
@@ -90,12 +96,17 @@ public class ValidationResultsProvider
 			wekaAttributes.put("Num_false_positives", "FP");
 		if (ArrayUtil.indexOf(perf, "FN") != -1)
 			wekaAttributes.put("Num_false_negatives", "FN");
-		if (ArrayUtil.indexOf(perf, "AUP") != -1)
-			wekaAttributes.put("Area_under_PRC", "AUP");
+		if (ArrayUtil.indexOf(perf, "AUPRC") != -1)
+			wekaAttributes.put("Area_under_PRC", "AUPRC");
 
 	}
 
 	public ValidationResultsProvider(String... arffResultFiles) throws Exception
+	{
+		this(null, arffResultFiles);
+	}
+
+	public ValidationResultsProvider(ResultSetFilter filter, String... arffResultFiles) throws Exception
 	{
 		if (arffResultFiles.length > 1)
 		{
@@ -105,31 +116,71 @@ public class ValidationResultsProvider
 		}
 		else
 			arff = new File(arffResultFiles[0]);
-
-		allResults = ResultSet.fromWekaDataset(new Instances(new FileReader(arff)));
+		allResults = WekaResultSetUtil.fromWekaDataset(new Instances(new FileReader(arff)));
 		results = new ResultSet();
 		for (int i = 0; i < allResults.getNumResults(); i++)
 		{
 			int idx = results.addResult();
+
+			Integer version = (int) Double
+					.parseDouble(allResults.getResultValue(i, "Key_Scheme_version_ID").toString());
+			String method = allResults.getResultValue(i, "Key_Scheme_options").toString();
+			results.setResultValue(idx, "Algorithm", algFromMethod(method, version));
+			results.setResultValue(idx, "CFPType", fpFromMethod(method));
+			FeatureSelection sel = featFromMethod(method);
+			results.setResultValue(idx, "FeatureSelection", sel);
+			results.setResultValue(idx, "hashfoldSize", sel == FeatureSelection.none ? null : sizeFromMethod(method));
+
 			for (String wp : wekaAttributes.keySet())
-			{
-				Object val = allResults.getResultValue(idx, wp);
-				if (wp.equals("Key_Scheme_options") && val.toString().contains("RandomForest"))
-				{
-					Integer version = ((Double) allResults.getResultValue(idx, "Key_Scheme_version_ID")).intValue();
-					if (version >= 4)
-					{
-						val = val.toString().replaceAll("RandomForest", "RandomFores2");
-						//						System.err.println("changed rf");
-					}
-				}
-				results.setResultValue(idx, wekaAttributes.get(wp), val);
-			}
+				results.setResultValue(idx, wekaAttributes.get(wp), allResults.getResultValue(i, wp));
+
+			if (filter != null)
+				results.filterLastResult(filter);
 		}
 		if (wekaAttributes.containsKey("Percent_correct"))
 			for (int i = 0; i < results.getNumResults(); i++)
 				results.setResultValue(i, wekaAttributes.get("Percent_correct"),
 						((Double) results.getResultValue(i, wekaAttributes.get("Percent_correct"))) * 0.01);
+	}
+
+	private static String algFromMethod(String m, int version)
+	{
+		if (m.contains("RandomForest"))
+		{
+			if (version >= 4)
+				return "RnF";
+			else
+				return "RaF";
+		}
+		else if (m.contains("SMO"))
+			return "SMO";
+		else if (m.contains("NaiveBayes"))
+			return "NBy";
+		throw new IllegalArgumentException(m);
+	}
+
+	private static CFPType fpFromMethod(String m)
+	{
+		for (CFPType t : CFPType.values())
+			if (m.contains(t.toString()))
+				return t;
+		throw new IllegalArgumentException(m);
+	}
+
+	private static FeatureSelection featFromMethod(String m)
+	{
+		for (FeatureSelection t : FeatureSelection.values())
+			if (m.contains(t.toString()))
+				return t;
+		throw new IllegalArgumentException(m);
+	}
+
+	private static Integer sizeFromMethod(String m)
+	{
+		for (int s : new int[] { 1024, 2048, 4096, 8192 })
+			if (m.contains(s + ""))
+				return s;
+		throw new IllegalArgumentException(m);
 	}
 
 	public static ValidationResultsProvider readResults(String dir, String includePattern) throws Exception
@@ -177,7 +228,7 @@ public class ValidationResultsProvider
 	{
 		ResultSetBoxPlot plot = new ResultSetBoxPlot(results, "", "", null, ArrayUtil.toList(performanceMeasures));
 		plot.setHideMean(true);
-		plot.printResultsPerPlot(false);
+		plot.printNumResultsPerPlot(false);
 		plot.setPrintMeanAndStdev(true);
 		if (valPng != null)
 			plot.ToPNGFile(valPng, new Dimension(450, 150));
@@ -321,8 +372,8 @@ public class ValidationResultsProvider
 	public static ResultSet ttest(ResultSet set, String measure, final String leftSide, final boolean numberEqual)
 	{
 		double prob = 0.05;
-		ResultSet test = set.pairedTTestWinLoss("Method", ArrayUtil.toList(new String[] { "Run", "Fold" }), measure,
-				prob, 1 / 9.0, "Dataset", true);
+		ResultSet test = set.pairedTTestWinLoss("Method", new String[] { "Run", "Fold" }, measure, prob, 1 / 9.0,
+				new String[] { "Dataset" }, true);
 		test = test.filter(new ResultSetFilter()
 		{
 			@Override
@@ -352,13 +403,13 @@ public class ValidationResultsProvider
 	public static boolean resultsExist(String datasetName, CFPMiner miner, String classifier)
 	{
 		return new File(RESULTS_FOLDER
-				+ CFPMiner.resultFileName(1, miner.getCFPType(), miner.getFeatureSelection(), miner.getHashfoldsize(),
-						classifier, datasetName)).exists();
+				+ CFPValidate.resultFileName(1, miner.getCFPType(), miner.getFeatureSelection(),
+						miner.getHashfoldsize(), classifier, datasetName)).exists();
 	}
 
 	public static String getResultsFile(String datasetName, CFPMiner miner, String classifier)
 	{
-		final String resultFileName = CFPMiner.resultFileName(miner.getCFPType(), miner.getFeatureSelection(),
+		final String resultFileName = CFPValidate.resultFileName(miner.getCFPType(), miner.getFeatureSelection(),
 				miner.getHashfoldsize(), classifier, datasetName);
 		String dest = RESULTS_MERGED_FOLDER + resultFileName;
 		if (!new File(dest).exists())

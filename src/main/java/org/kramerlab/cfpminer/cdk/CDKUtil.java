@@ -36,9 +36,21 @@ public class CDKUtil
 		return new SmilesGenerator().create(mol);
 	}
 
+	private static HashMap<String, String> smilesToInchi = new HashMap<String, String>();
+
+	public static String toInchi(String smiles) throws CDKException
+	{
+		if (!smilesToInchi.containsKey(smiles))
+			smilesToInchi.put(smiles, toInchi(parseSmiles(smiles)));
+		return smilesToInchi.get(smiles);
+	}
+
 	public static String toInchi(IAtomContainer mol) throws CDKException
 	{
-		return InChIGeneratorFactory.getInstance().getInChIGenerator(mol).getInchi();
+		String inchi = InChIGeneratorFactory.getInstance().getInChIGenerator(mol).getInchi();
+		if (inchi == null || inchi.length() == 0)
+			throw new IllegalStateException("inchi : '" + inchi + "'");
+		return inchi;
 	}
 
 	public static String toInchiKey(IAtomContainer mol) throws CDKException

@@ -15,6 +15,7 @@ import org.kramerlab.cfpminer.CFPMiner.CFPType;
 import org.kramerlab.cfpminer.CFPMiner.FeatureSelection;
 import org.kramerlab.cfpminer.cdk.CDKUtil;
 import org.kramerlab.cfpminer.weka.AttributeCrossvalidator;
+import org.kramerlab.cfpminer.weka.CFPValidate;
 import org.mg.javalib.datamining.ResultSet;
 import org.mg.javalib.datamining.ResultSetIO;
 import org.mg.javalib.util.ListUtil;
@@ -64,7 +65,7 @@ public class CFPUtil
 				res.setResultValue(idx, "Dataset", name);
 				res.setResultValue(idx, "Type", type + "");
 				res.setResultValue(idx, "Compounds", miner.getNumCompounds());
-				res.setResultValue(idx, "Fragments", miner.getNumAttributes());
+				res.setResultValue(idx, "Fragments", miner.getNumFragments());
 
 				for (int size : new int[] { 1024, 2048, 4096, 8192 })
 				{
@@ -94,7 +95,7 @@ public class CFPUtil
 			//			if (dCount > 2)
 			//				break;
 		}
-		ResultSetIO.printToFile(new File("data_collisions/collisions_fcfp.result"), res, true);
+		ResultSetIO.printToTxtFile(new File("data_collisions/collisions_fcfp.result"), res, true);
 		System.exit(1);
 	}
 
@@ -114,16 +115,16 @@ public class CFPUtil
 		ListUtil.scramble(new Random(1), list, endpointValues);
 
 		CFPMiner cfps = new CFPMiner(ListUtil.cast(String.class, endpointValues));
-		cfps.type = type;
-		cfps.featureSelection = featureSelection;
-		cfps.hashfoldsize = hashfoldsize;
+		cfps.setType(type);
+		cfps.setFeatureSelection(featureSelection);
+		cfps.setHashfoldsize(hashfoldsize);
 		cfps.mine(list);
 
 		String classifier = "SMO";
 		for (int i : new int[] { 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192 })
 		{
-			cfps.hashfoldsize = i;
-			CFPMiner.validate(datasetName, run, "/dev/null", new String[] { classifier }, endpointValues,
+			cfps.setHashfoldsize(i);
+			CFPValidate.validate(datasetName, run, "/dev/null", new String[] { classifier }, endpointValues,
 					new CFPMiner[] { cfps });
 		}
 
@@ -144,8 +145,8 @@ public class CFPUtil
 		ListUtil.scramble(new Random(1), list, endpointValues);
 
 		CFPMiner cfps = new CFPMiner(ListUtil.cast(String.class, endpointValues));
-		cfps.type = type;
-		cfps.featureSelection = featureSelection;
+		cfps.setType(type);
+		cfps.setFeatureSelection(featureSelection);
 		//		cfps.hashfoldsize = hashfoldsize;
 		cfps.mine(list);
 
@@ -157,8 +158,8 @@ public class CFPUtil
 				//				for (Boolean b : new boolean[] { true, false })
 				//				{
 				//					AttributeCrossvalidator.FORCE_SPARSE = b;
-				cfps.hashfoldsize = i;
-				CFPMiner.validate(datasetName, run, "/tmp/" + classifier + "_" + b + "_mult.arff",
+				cfps.setHashfoldsize(i);
+				CFPValidate.validate(datasetName, run, "/tmp/" + classifier + "_" + b + "_mult.arff",
 						new String[] { classifier }, endpointValues, new CFPMiner[] { cfps });
 				//				}
 			}
@@ -186,6 +187,7 @@ public class CFPUtil
 				ObjectInputStream ois = new ObjectInputStream(new FileInputStream(runtimesFile));
 				runtimes = (HashMap<String, Double>) ois.readObject();
 				ois.close();
+				System.out.println("runtime file loaded with " + runtimes.size() + " entries");
 			}
 			else
 				runtimes = new HashMap<>();
@@ -241,7 +243,7 @@ public class CFPUtil
 		//StopWatchUtil.stop("all > create > filter");
 
 		Classifier classi;
-		if (classifier.equals("RaF"))
+		if (classifier.equals("RnF"))
 			classi = new RandomForest();
 		else if (classifier.equals("SMO"))
 			classi = new SMO();
@@ -275,10 +277,10 @@ public class CFPUtil
 		for (String smi : list)
 		{
 			//			StopWatchUtil.start("all > predict > create instance");
-			double vals[] = new double[cfps.getNumAttributes() + 1];
-			HashSet<Integer> set = cfps.getHashcodesForTestCompound(CDKUtil.parseSmiles(smi));
+			double vals[] = new double[cfps.getNumFragments() + 1];
+			HashSet<CFPFragment> set = cfps.getFragmentsForTestCompound(CDKUtil.parseSmiles(smi));
 			for (int i = 0; i < vals.length - 1; i++)
-				vals[i] = set.contains(cfps.getHashcodeViaIdx(i)) ? 1.0 : 0.0;
+				vals[i] = set.contains(cfps.getFragmentViaIdx(i)) ? 1.0 : 0.0;
 			Instance testInst;
 			if (classi instanceof SMO)
 				testInst = new SparseInstance(1.0, vals);
@@ -321,11 +323,11 @@ public class CFPUtil
 		{
 			CFPType type = CFPType.ecfp4;
 			{
-				for (String classifier : new String[] { "RaF", "SMO", "NBy" })
+				for (String classifier : new String[] { "RnF", "SMO", "NBy" })
 				{
 					for (FeatureSelection featureSelection : FeatureSelection.values())
 					{
-						int hashfoldsize = (featureSelection == FeatureSelection.none) ? 0 : 1024;
+						int hashfoldsize = (featureSelection == FeatureSelection.none) ? 0 : 2048;
 						{
 							String k = getRuntimeKey(datasetName, type, featureSelection, hashfoldsize, classifier,
 									true);
@@ -344,7 +346,7 @@ public class CFPUtil
 
 	public static void main(String[] args) throws Exception
 	{
-		measureRuntimes();
+		demo();
 
 		//		//		//demo();
 		//		String datasetName = "AMES";

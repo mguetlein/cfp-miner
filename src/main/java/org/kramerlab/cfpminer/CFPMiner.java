@@ -11,24 +11,15 @@ import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Locale;
-import java.util.Random;
 import java.util.Set;
 
-import org.apache.commons.cli.BasicParser;
-import org.apache.commons.cli.CommandLine;
-import org.apache.commons.cli.CommandLineParser;
-import org.apache.commons.cli.Options;
 import org.apache.commons.math3.stat.inference.TestUtils;
 import org.kramerlab.cfpminer.cdk.CDKUtil;
-import org.kramerlab.cfpminer.weka.AttributeCrossvalidator;
 import org.mg.javalib.datamining.ResultSet;
-import org.mg.javalib.util.ArrayUtil;
 import org.mg.javalib.util.CountedSet;
 import org.mg.javalib.util.DoubleArraySummary;
 import org.mg.javalib.util.FileUtil;
 import org.mg.javalib.util.HashUtil;
-import org.mg.javalib.util.ListUtil;
 import org.mg.javalib.util.SetUtil;
 import org.openscience.cdk.exception.CDKException;
 import org.openscience.cdk.fingerprint.BitSetFingerprint;
@@ -36,15 +27,16 @@ import org.openscience.cdk.fingerprint.CircularFingerprinter;
 import org.openscience.cdk.fingerprint.IBitFingerprint;
 import org.openscience.cdk.interfaces.IAtomContainer;
 
-public class CFPMiner implements Serializable, AttributeCrossvalidator.AttributeProvider
+public class CFPMiner implements Serializable
 {
-	private static final long serialVersionUID = 2L;
+	private static final long serialVersionUID = 5L;
 
-	int numCompounds = 0;
-	List<String> endpoints;
-	List<String> trainingDataSmiles;
-	LinkedHashMap<Integer, LinkedHashSet<Integer>> hashCodeToCompound = new LinkedHashMap<Integer, LinkedHashSet<Integer>>();
-	int numUnfoldedConflicts = 0;
+	protected int numCompounds = 0;
+	protected List<String> endpoints;
+	protected List<String> trainingDataSmiles;
+	protected HashMap<String, String> trainingInchisToEndpoint;
+	protected LinkedHashMap<CFPFragment, LinkedHashSet<Integer>> fragmentToCompound = new LinkedHashMap<CFPFragment, LinkedHashSet<Integer>>();
+	protected int numUnfoldedConflicts = 0;
 
 	public enum CFPType
 	{
@@ -118,7 +110,7 @@ public class CFPMiner implements Serializable, AttributeCrossvalidator.Attribute
 				case fold:
 					return "Folding";
 				case none:
-					return "All";
+					return "Unprocessed";
 			}
 			throw new IllegalStateException();
 		}
@@ -132,12 +124,12 @@ public class CFPMiner implements Serializable, AttributeCrossvalidator.Attribute
 				case fold:
 					return "Folded";
 				case none:
-					return "All";
+					return "Unprocessed";
 			}
 			throw new IllegalStateException();
 		}
 
-		public Object toNiceShortString()
+		public String toNiceShortString()
 		{
 			switch (this)
 			{
@@ -146,24 +138,24 @@ public class CFPMiner implements Serializable, AttributeCrossvalidator.Attribute
 				case fold:
 					return "Fold.";
 				case none:
-					return "All";
+					return "Unproc.";
 			}
 			throw new IllegalStateException();
 		}
 	}
 
-	CFPType type;
-	FeatureSelection featureSelection;
-	int hashfoldsize;
-	int absMinFreq = 2;
+	protected CFPType type;
+	protected FeatureSelection featureSelection;
+	protected int hashfoldsize;
+	protected int absMinFreq = 2;
 
-	transient LinkedHashMap<Integer, LinkedHashSet<Integer>> hashCodeToCompound_unfiltered;
+	transient LinkedHashMap<CFPFragment, LinkedHashSet<Integer>> fragmentToCompound_unfiltered;
 	transient CircularFingerprinter fp;
-	transient Integer[] hashcodeList;
-	transient HashMap<Integer, LinkedHashSet<Integer>> compoundToHashCode;
-	transient HashMap<Integer, Integer> hashCodeToIteration = new HashMap<Integer, Integer>();
-	transient HashMap<Integer, Integer> hashCodeToNumAtoms = new HashMap<Integer, Integer>();
-	transient HashMap<IAtomContainer, LinkedHashSet<Integer>> testMoleculeToHashCode;
+	transient CFPFragment[] fragmentList;
+	transient HashMap<Integer, LinkedHashSet<CFPFragment>> compoundToFragment;
+	transient HashMap<CFPFragment, Integer> fragmentToIteration = new HashMap<CFPFragment, Integer>();
+	transient HashMap<CFPFragment, Integer> fragmentToNumAtoms = new HashMap<CFPFragment, Integer>();
+	transient HashMap<IAtomContainer, LinkedHashSet<CFPFragment>> testMoleculeToFragment;
 	transient String[] classValues;
 	transient Integer activeIdx;
 	transient private HashMap<Integer, Set<Integer>> collisionMap;
@@ -202,6 +194,11 @@ public class CFPMiner implements Serializable, AttributeCrossvalidator.Attribute
 		return hashfoldsize;
 	}
 
+	public int getNumFragments()
+	{
+		return fragmentToCompound.size();
+	}
+
 	public CFPType getCFPType()
 	{
 		return type;
@@ -230,6 +227,14 @@ public class CFPMiner implements Serializable, AttributeCrossvalidator.Attribute
 	public void setHashfoldsize(int hashfoldsize)
 	{
 		this.hashfoldsize = hashfoldsize;
+	}
+
+	public boolean isFragmentIncludedInCompound(int compound, CFPFragment fragment)
+	{
+		if (fragmentToCompound.get(fragment) == null)
+			throw new IllegalStateException("no compounds for fragment, should have been removed! " + fragment + " "
+					+ fragmentToCompound.get(fragment));
+		return (fragmentToCompound.get(fragment).contains(compound));
 	}
 
 	private CFPMiner()
@@ -262,12 +267,12 @@ public class CFPMiner implements Serializable, AttributeCrossvalidator.Attribute
 		};
 	}
 
-	public int[] getAtoms(String smiles, Integer fingerprint) throws Exception
+	public int[] getAtoms(String smiles, CFPFragment fragment) throws Exception
 	{
-		return getAtoms(CDKUtil.parseSmiles(smiles), fingerprint);
+		return getAtoms(CDKUtil.parseSmiles(smiles), fragment);
 	}
 
-	public int[] getAtoms(IAtomContainer mol, Integer fingerprint) throws Exception
+	public int[] getAtoms(IAtomContainer mol, CFPFragment fragment) throws Exception
 	{
 		if (featureSelection == FeatureSelection.fold)
 			throw new IllegalArgumentException();
@@ -276,7 +281,7 @@ public class CFPMiner implements Serializable, AttributeCrossvalidator.Attribute
 		fp.getBitFingerprint(mol);
 		for (int i = 0; i < fp.getFPCount(); i++)
 		{
-			if (fp.getFP(i).hashCode == fingerprint)
+			if (fp.getFP(i).hashCode == fragment.getId())
 			{
 				atoms = fp.getFP(i).atoms;
 				break;
@@ -291,23 +296,23 @@ public class CFPMiner implements Serializable, AttributeCrossvalidator.Attribute
 	 * fragment may occur multiple times
 	 * 
 	 * @param mol
-	 * @param fingerprint
+	 * @param fragment
 	 * @return
 	 * @throws Exception
 	 */
-	public Set<Integer> getAtomsMultiple(IAtomContainer mol, Integer fingerprint) throws Exception
+	public Set<Integer> getAtomsMultiple(IAtomContainer mol, CFPFragment fragment) throws Exception
 	{
 		if (featureSelection == FeatureSelection.fold)
 			throw new IllegalArgumentException();
 
-		Integer key = HashUtil.hashCode(type, mol, fingerprint);
+		Integer key = HashUtil.hashCode(type, mol, fragment);
 		if (!atomsMultCache.containsKey(key))
 		{
 			Set<Integer> atoms = new HashSet<>();
 			initCircularFingerprinter();
 			fp.getBitFingerprint(mol);
 			for (int i = 0; i < fp.getFPCount(); i++)
-				if (fp.getFP(i).hashCode == fingerprint)
+				if (fp.getFP(i).hashCode == fragment.getId())
 					for (int a : fp.getFP(i).atoms)
 						atoms.add(a);
 			atomsMultCache.put(key, atoms);
@@ -319,13 +324,24 @@ public class CFPMiner implements Serializable, AttributeCrossvalidator.Attribute
 	{
 		this.trainingDataSmiles = smiles;
 
+		trainingInchisToEndpoint = new HashMap<>();
+		int idx = 0;
+		for (String smi : smiles)
+		{
+			String inchi = CDKUtil.toInchi(smi);
+			if (trainingInchisToEndpoint.containsKey(inchi))
+				throw new IllegalStateException("no duplicates allowed!");
+			trainingInchisToEndpoint.put(inchi, endpoints.get(idx));
+			idx++;
+		}
+
 		initCircularFingerprinter();
 		for (String smi : smiles)
 		{
 			IBitFingerprint finger = fp.getBitFingerprint(CDKUtil.parseSmiles(smi));
 			if (featureSelection == FeatureSelection.fold)
 				for (int i : finger.getSetbits())
-					insert(hashCodeToCompound, i, numCompounds);
+					insert(fragmentToCompound, new CFPFragment(i), numCompounds);
 			else
 				for (int i = 0; i < fp.getFPCount(); i++)
 				{
@@ -341,10 +357,10 @@ public class CFPMiner implements Serializable, AttributeCrossvalidator.Attribute
 					//							e.printStackTrace();
 					//						}
 					//					}
-
-					insert(hashCodeToCompound, fp.getFP(i).hashCode, numCompounds);
-					boolean conflict = check(hashCodeToIteration, fp.getFP(i).hashCode, fp.getFP(i).iteration);
-					conflict |= check(hashCodeToNumAtoms, fp.getFP(i).hashCode, fp.getFP(i).atoms.length);
+					CFPFragment frag = new CFPFragment(fp.getFP(i).hashCode);
+					insert(fragmentToCompound, frag, numCompounds);
+					boolean conflict = check(fragmentToIteration, frag, fp.getFP(i).iteration);
+					conflict |= check(fragmentToNumAtoms, frag, fp.getFP(i).atoms.length);
 					if (conflict)
 					{
 						//						System.err.println(fp.getFP(i).hashCode);
@@ -357,14 +373,14 @@ public class CFPMiner implements Serializable, AttributeCrossvalidator.Attribute
 		}
 	}
 
-	private static void insert(HashMap<Integer, LinkedHashSet<Integer>> map, int key, int val)
+	private static <T1, T2> void insert(HashMap<T1, LinkedHashSet<T2>> map, T1 key, T2 val)
 	{
 		if (!map.containsKey(key))
-			map.put(key, new LinkedHashSet<Integer>());
+			map.put(key, new LinkedHashSet<T2>());
 		map.get(key).add(val);
 	}
 
-	private static boolean check(HashMap<Integer, Integer> map, int key, int val)
+	private static <T> boolean check(HashMap<T, Integer> map, T key, int val)
 	{
 		if (map.containsKey(key) && map.get(key) != val)
 			return true; //System.err.println("conflict " + key + " val1: " + val + " val2:" + map.get(key));
@@ -372,62 +388,76 @@ public class CFPMiner implements Serializable, AttributeCrossvalidator.Attribute
 		return false;
 	}
 
-	public LinkedHashSet<Integer> getCompoundsForHashcode(Integer hashcode)
+	public LinkedHashSet<Integer> getCompoundsForFragment(CFPFragment fragment)
 	{
-		return hashCodeToCompound.get(hashcode);
+		return fragmentToCompound.get(fragment);
 	}
 
-	public LinkedHashSet<Integer> getHashcodesForCompound(Integer compound)
+	public LinkedHashSet<CFPFragment> getFragmentsForCompound(Integer compound)
 	{
-		if (compoundToHashCode == null)
+		if (compoundToFragment == null)
 		{
-			compoundToHashCode = new HashMap<Integer, LinkedHashSet<Integer>>();
-			for (Integer h : hashCodeToCompound.keySet())
-				for (Integer c : hashCodeToCompound.get(h))
-					insert(compoundToHashCode, c, h);
+			compoundToFragment = new HashMap<Integer, LinkedHashSet<CFPFragment>>();
+			for (CFPFragment f : fragmentToCompound.keySet())
+				for (Integer c : fragmentToCompound.get(f))
+					insert(compoundToFragment, c, f);
 		}
-		if (compoundToHashCode.containsKey(compound))
-			return compoundToHashCode.get(compound);
+		if (compoundToFragment.containsKey(compound))
+			return compoundToFragment.get(compound);
 		else
-			return new LinkedHashSet<Integer>();
+			return new LinkedHashSet<CFPFragment>();
 	}
 
-	public Integer getHashcodeViaIdx(int attribute)
+	public double getTanimotoSimilarity(int i, int j)
 	{
-		if (hashcodeList == null)
+		HashSet<CFPFragment> h1 = getFragmentsForCompound(i);
+		HashSet<CFPFragment> h2 = getFragmentsForCompound(j);
+		int and = SetUtil.intersectSize(h1, h2);
+		int or = h1.size() + h2.size() - and;
+		return and / (double) or;
+	}
+
+	public String getTrainingActivity(String smiles) throws CDKException
+	{
+		return trainingInchisToEndpoint.get(CDKUtil.toInchi(smiles));
+	}
+
+	public CFPFragment getFragmentViaIdx(int fragmentIdx)
+	{
+		if (fragmentList == null)
 		{
-			hashcodeList = new Integer[hashCodeToCompound.size()];
+			fragmentList = new CFPFragment[fragmentToCompound.size()];
 			int idx = 0;
-			for (Integer h : hashCodeToCompound.keySet())
-				hashcodeList[idx++] = h;
+			for (CFPFragment h : fragmentToCompound.keySet())
+				fragmentList[idx++] = h;
 		}
-		return hashcodeList[attribute];
+		return fragmentList[fragmentIdx];
 	}
 
-	public LinkedHashSet<Integer> getHashcodesForTestCompound(String smiles) throws Exception
+	public LinkedHashSet<CFPFragment> getFragmentsForTestCompound(String smiles) throws Exception
 	{
-		return getHashcodesForTestCompound(CDKUtil.parseSmiles(smiles));
+		return getFragmentsForTestCompound(CDKUtil.parseSmiles(smiles));
 	}
 
-	public LinkedHashSet<Integer> getHashcodesForTestCompound(IAtomContainer testMol) throws CDKException
+	public LinkedHashSet<CFPFragment> getFragmentsForTestCompound(IAtomContainer testMol) throws CDKException
 	{
-		if (testMoleculeToHashCode == null)
-			testMoleculeToHashCode = new HashMap<IAtomContainer, LinkedHashSet<Integer>>();
-		if (!testMoleculeToHashCode.containsKey(testMol))
+		if (testMoleculeToFragment == null)
+			testMoleculeToFragment = new HashMap<IAtomContainer, LinkedHashSet<CFPFragment>>();
+		if (!testMoleculeToFragment.containsKey(testMol))
 		{
 			if (fp == null)
 				initCircularFingerprinter();
-			LinkedHashSet<Integer> hashCodes = new LinkedHashSet<Integer>();
+			LinkedHashSet<CFPFragment> fragments = new LinkedHashSet<CFPFragment>();
 			IBitFingerprint finger = fp.getBitFingerprint(testMol);
 			if (featureSelection == FeatureSelection.fold)
 				for (int i : finger.getSetbits())
-					hashCodes.add(i);
+					fragments.add(new CFPFragment(i));
 			else
 				for (int i = 0; i < fp.getFPCount(); i++)
-					hashCodes.add(fp.getFP(i).hashCode);
-			testMoleculeToHashCode.put(testMol, hashCodes);
+					fragments.add(new CFPFragment(fp.getFP(i).hashCode));
+			testMoleculeToFragment.put(testMol, fragments);
 		}
-		return testMoleculeToHashCode.get(testMol);
+		return testMoleculeToFragment.get(testMol);
 	}
 
 	@SuppressWarnings("unchecked")
@@ -439,8 +469,8 @@ public class CFPMiner implements Serializable, AttributeCrossvalidator.Attribute
 		f.featureSelection = featureSelection;
 		f.absMinFreq = absMinFreq;
 		f.numCompounds = numCompounds;
-		for (Integer integer : hashCodeToCompound.keySet())
-			f.hashCodeToCompound.put(integer, (LinkedHashSet<Integer>) hashCodeToCompound.get(integer).clone());
+		for (CFPFragment frag : fragmentToCompound.keySet())
+			f.fragmentToCompound.put(frag, (LinkedHashSet<Integer>) fragmentToCompound.get(frag).clone());
 		return f;
 	}
 
@@ -452,20 +482,20 @@ public class CFPMiner implements Serializable, AttributeCrossvalidator.Attribute
 	private void applyMinFreq(Set<Integer> compoundSubset, int minFreq)
 	{
 		// remove with min-freq 0, would not have been mined on subset
-		List<Integer> hashCodeToDelete = new ArrayList<Integer>();
-		for (Integer h : hashCodeToCompound.keySet())
-			if (SetUtil.intersectSize(hashCodeToCompound.get(h), compoundSubset) == 0)
-				hashCodeToDelete.add(h);
-		removeHashCodes(hashCodeToDelete);
+		List<CFPFragment> fragmentToDelete = new ArrayList<CFPFragment>();
+		for (CFPFragment f : fragmentToCompound.keySet())
+			if (SetUtil.intersectSize(fragmentToCompound.get(f), compoundSubset) == 0)
+				fragmentToDelete.add(f);
+		removeFragments(fragmentToDelete);
 
 		// remove only if larger than hashfoldize
-		if (hashCodeToCompound.size() <= hashfoldsize)
+		if (fragmentToCompound.size() <= hashfoldsize)
 			return;
 
 		// collect tuples of hash code and min-freq
 		List<int[]> hf = new ArrayList<int[]>();
-		for (Integer h : hashCodeToCompound.keySet())
-			hf.add(new int[] { h, SetUtil.intersectSize(hashCodeToCompound.get(h), compoundSubset) });
+		for (CFPFragment f : fragmentToCompound.keySet())
+			hf.add(new int[] { f.getId(), SetUtil.intersectSize(fragmentToCompound.get(f), compoundSubset) });
 
 		// sort according to min freq, in decreasing order
 		Collections.sort(hf, new Comparator<int[]>()
@@ -478,24 +508,16 @@ public class CFPMiner implements Serializable, AttributeCrossvalidator.Attribute
 			}
 		});
 
-		Set<Integer> toRemove = new HashSet<>();
+		Set<CFPFragment> toRemove = new HashSet<>();
 		// apply min-freq while size > hashfoldsize
 		for (int i = hashfoldsize; i < hf.size(); i++)
 		{
 			if (hf.get(i)[1] < absMinFreq)
-				toRemove.add((int) hf.get(i)[0]);
+				toRemove.add(new CFPFragment(hf.get(i)[0]));
 		}
-		removeHashCodes(toRemove);
+		removeFragments(toRemove);
 
-		//		List<Integer> hashCodeToDelete = new ArrayList<Integer>();
-		//		for (Integer h : hashCodeToCompound.keySet())
-		//			if (hashCodeToCompound.get(h).size() < minFreq)
-		//				hashCodeToDelete.add(h);
-		//		removeHashCodes(hashCodeToDelete);
-
-		//		System.err.println("after min freq:");
-		//		System.err.println(this);
-		System.err.println("applied min freq filter: " + hashCodeToCompound.size());
+		System.err.println("applied min freq filter: " + fragmentToCompound.size());
 
 	}
 
@@ -511,93 +533,93 @@ public class CFPMiner implements Serializable, AttributeCrossvalidator.Attribute
 
 	public void applyClosedSetFilter(Set<Integer> compoundSubset)
 	{
-		if (hashCodeToCompound.size() <= hashfoldsize)
+		if (fragmentToCompound.size() <= hashfoldsize)
 			return;
-		int maxNumRemove = hashCodeToCompound.size() - hashfoldsize;
+		int maxNumRemove = fragmentToCompound.size() - hashfoldsize;
 
-		LinkedHashMap<Integer, Set<Integer>> hashCodeToCompoundSubset = new LinkedHashMap<>();
-		LinkedHashMap<Integer, List<Integer>> hashCodesWidthSimilarSubsets = new LinkedHashMap<>();
-		for (Integer h : hashCodeToCompound.keySet())
+		LinkedHashMap<CFPFragment, Set<Integer>> fragmentToCompoundSubset = new LinkedHashMap<>();
+		LinkedHashMap<Integer, List<CFPFragment>> fragmentWithSimilarSubsets = new LinkedHashMap<>();
+		for (CFPFragment f : fragmentToCompound.keySet())
 		{
 			@SuppressWarnings("unchecked")
-			Set<Integer> hCompounds = (Set<Integer>) hashCodeToCompound.get(h).clone();
+			Set<Integer> hCompounds = (Set<Integer>) fragmentToCompound.get(f).clone();
 			hCompounds.retainAll(compoundSubset);
-			hashCodeToCompoundSubset.put(h, hCompounds);
+			fragmentToCompoundSubset.put(f, hCompounds);
 
 			int eq = hCompounds.hashCode();
-			if (!hashCodesWidthSimilarSubsets.containsKey(eq))
-				hashCodesWidthSimilarSubsets.put(eq, new ArrayList<Integer>());
-			hashCodesWidthSimilarSubsets.get(eq).add(h);
+			if (!fragmentWithSimilarSubsets.containsKey(eq))
+				fragmentWithSimilarSubsets.put(eq, new ArrayList<CFPFragment>());
+			fragmentWithSimilarSubsets.get(eq).add(f);
 		}
 
-		if (hashcodeList == null)
-			getHashcodeViaIdx(0);
-		Set<Integer> hashCodesToRemove = new HashSet<>();
+		if (fragmentList == null)
+			getFragmentViaIdx(0);
+		Set<CFPFragment> fragmentsToRemove = new HashSet<>();
 
-		for (List<Integer> hashcodeSet : hashCodesWidthSimilarSubsets.values())
+		for (List<CFPFragment> fragmentSet : fragmentWithSimilarSubsets.values())
 		{
-			for (int i = 0; i < hashcodeSet.size() - 1; i++)
+			for (int i = 0; i < fragmentSet.size() - 1; i++)
 			{
-				Integer h1 = hashcodeSet.get(i);
-				if (hashCodesToRemove.contains(h1))
+				CFPFragment f1 = fragmentSet.get(i);
+				if (fragmentsToRemove.contains(f1))
 					continue;
 
-				for (int j = i + 1; j < hashcodeSet.size(); j++)
+				for (int j = i + 1; j < fragmentSet.size(); j++)
 				{
-					Integer h2 = hashcodeSet.get(j);
-					if (hashCodesToRemove.contains(h2))
+					CFPFragment f2 = fragmentSet.get(j);
+					if (fragmentsToRemove.contains(f2))
 						continue;
 
-					if (hashCodeToCompoundSubset.get(h1).equals(hashCodeToCompoundSubset.get(h2)))
+					if (fragmentToCompoundSubset.get(f1).equals(fragmentToCompoundSubset.get(f2)))
 					{
-						Integer obsolete = getNonClosed(h1, h2, hashCodeToCompoundSubset.get(h1));
+						CFPFragment obsolete = getNonClosed(f1, f2, fragmentToCompoundSubset.get(f1));
 						if (obsolete != null)
 						{
-							hashCodesToRemove.add(obsolete);
-							if (hashCodesToRemove.size() >= maxNumRemove || obsolete == h1)
+							fragmentsToRemove.add(obsolete);
+							if (fragmentsToRemove.size() >= maxNumRemove || obsolete == f1)
 								break;
 						}
 					}
 				}
-				if (hashCodesToRemove.size() >= maxNumRemove)
+				if (fragmentsToRemove.size() >= maxNumRemove)
 					break;
 			}
-			if (hashCodesToRemove.size() >= maxNumRemove)
+			if (fragmentsToRemove.size() >= maxNumRemove)
 				break;
 		}
 
-		removeHashCodes(hashCodesToRemove);
+		removeFragments(fragmentsToRemove);
 
-		System.err.println("applied closed fragment filter: " + hashCodeToCompound.size());
+		System.err.println("applied closed fragment filter: " + fragmentToCompound.size());
 	}
 
-	public Integer getNonClosed(Integer h1, Integer h2, Set<Integer> compounds)
+	public CFPFragment getNonClosed(CFPFragment f1, CFPFragment f2, Set<Integer> compounds)
 	{
 
 		//		System.out.println("check if " + h1 + " is superset of " + h2 + ", compounds: " + compounds);
 		try
 		{
-			boolean h1SupersetCandiate = true;
-			boolean h2SupersetCandiate = true;
+			boolean f1SupersetCandiate = true;
+			boolean f2SupersetCandiate = true;
 			for (Integer c : compounds)
 			{
 				IAtomContainer mol = CDKUtil.parseSmiles(trainingDataSmiles.get(c));
-				Set<Integer> atoms1 = getAtomsMultiple(mol, h1);
-				Set<Integer> atoms2 = getAtomsMultiple(mol, h2);
+				Set<Integer> atoms1 = getAtomsMultiple(mol, f1);
+				Set<Integer> atoms2 = getAtomsMultiple(mol, f2);
 				//				System.out.println("mol " + c + " atoms h1: " + atoms1 + " atoms h2: " + atoms2);
-				if (h1SupersetCandiate)
+				if (f1SupersetCandiate)
 					if (!SetUtil.isSubSet(atoms1, atoms2))
-						h1SupersetCandiate = false;
-				if (h2SupersetCandiate)
+						f1SupersetCandiate = false;
+				if (f2SupersetCandiate)
 					if (!SetUtil.isSubSet(atoms2, atoms1))
-						h2SupersetCandiate = false;
-				if (!h1SupersetCandiate && !h2SupersetCandiate)
+						f2SupersetCandiate = false;
+				if (!f1SupersetCandiate && !f2SupersetCandiate)
 					return null;
 			}
-			if (h1SupersetCandiate)
-				return h2;
-			else if (h2SupersetCandiate)
-				return h1;
+			if (f1SupersetCandiate)
+				return f2;
+			else if (f2SupersetCandiate)
+				return f1;
 			else
 				throw new IllegalStateException();
 		}
@@ -614,7 +636,7 @@ public class CFPMiner implements Serializable, AttributeCrossvalidator.Attribute
 		// to feature-x with 31 x active, 5 x inactive for all compounds with feature-value(feature-x, compound-y)= active
 		if (endpoints.size() != numCompounds)
 			throw new IllegalArgumentException(endpoints.size() + " != " + numCompounds);
-		if (hashCodeToCompound.size() <= hashfoldsize)
+		if (fragmentToCompound.size() <= hashfoldsize)
 			return;
 		List<String> domain = new ArrayList<String>(new HashSet<String>(endpoints));
 		List<String> subsetEndpoints = new ArrayList<String>();
@@ -626,10 +648,10 @@ public class CFPMiner implements Serializable, AttributeCrossvalidator.Attribute
 
 		// create tuples of hash code and p-value
 		List<double[]> hp = new ArrayList<double[]>();
-		for (Integer h : hashCodeToCompound.keySet())
+		for (CFPFragment f : fragmentToCompound.keySet())
 		{
 			List<String> values = new ArrayList<String>();
-			for (Integer c : hashCodeToCompound.get(h))
+			for (Integer c : fragmentToCompound.get(f))
 				if (compoundSubset.contains(c))
 					values.add(endpoints.get(c));
 			//			System.out.println(values);
@@ -647,7 +669,7 @@ public class CFPMiner implements Serializable, AttributeCrossvalidator.Attribute
 				//				if (p > pValueThreshold)
 				//					hashCodeToDelete.add(h);
 			}
-			hp.add(new double[] { h, p });
+			hp.add(new double[] { f.getId(), p });
 		}
 
 		//sort tuples according to p-values
@@ -661,25 +683,25 @@ public class CFPMiner implements Serializable, AttributeCrossvalidator.Attribute
 		});
 
 		//sort compounds higher than hash
-		Set<Integer> toRemove = new HashSet<>();
+		Set<CFPFragment> toRemove = new HashSet<>();
 		for (int i = hashfoldsize; i < hp.size(); i++)
 		{
-			//			System.err.println("remove hash-code with p-value " + hp.get(i)[1]);
-			toRemove.add((int) hp.get(i)[0]);
+			//			System.err.println("remove fragment with p-value " + hp.get(i)[1]);
+			toRemove.add(new CFPFragment((int) hp.get(i)[0]));
 		}
-		removeHashCodes(toRemove);
-		if (hashCodeToCompound.size() != hashfoldsize)
+		removeFragments(toRemove);
+		if (fragmentToCompound.size() != hashfoldsize)
 			throw new IllegalStateException();
 
-		System.err.println("applied chi square filter: " + hashCodeToCompound.size());
+		System.err.println("applied chi square filter: " + fragmentToCompound.size());
 	}
 
-	private void removeHashCodes(Collection<Integer> hashCodeToDelete)
+	private void removeFragments(Collection<CFPFragment> fragmentToDelete)
 	{
-		for (Integer h : hashCodeToDelete)
-			hashCodeToCompound.remove(h);
-		compoundToHashCode = null;
-		hashcodeList = null;
+		for (CFPFragment f : fragmentToDelete)
+			fragmentToCompound.remove(f);
+		compoundToFragment = null;
+		fragmentList = null;
 	}
 
 	public ResultSet getSummary(boolean nice)
@@ -689,7 +711,7 @@ public class CFPMiner implements Serializable, AttributeCrossvalidator.Attribute
 		//set.setResultValue(idx, "name", getName());
 		if (!nice)
 			set.setResultValue(idx, "Endpoints", CountedSet.create(endpoints));
-		set.setResultValue(idx, "Num fragments", hashCodeToCompound.size());
+		set.setResultValue(idx, "Num fragments", fragmentToCompound.size());
 		if (!nice)
 			set.setResultValue(idx, "Num compounds", numCompounds);
 		set.setResultValue(idx, "Fragment type", nice ? type.toNiceString() : type);
@@ -708,25 +730,25 @@ public class CFPMiner implements Serializable, AttributeCrossvalidator.Attribute
 			set.setResultValue(idx, "num unfolded conflicts", numUnfoldedConflicts);
 			int n = 0;
 			for (int c = 0; c < numCompounds; c++)
-				if (getHashcodesForCompound(c).isEmpty())
+				if (getFragmentsForCompound(c).isEmpty())
 					n++;
 			set.setResultValue(idx, "compounds w/o hash code", n);
 			List<Integer> cmps = new ArrayList<>();
 			List<String> cmpsStr = new ArrayList<>();
-			for (Integer hashCode : hashCodeToCompound.keySet())
+			for (CFPFragment fragment : fragmentToCompound.keySet())
 			{
-				cmps.add(hashCodeToCompound.get(hashCode).size());
-				cmpsStr.add(hashCodeToCompound.get(hashCode).size() + "");
+				cmps.add(fragmentToCompound.get(fragment).size());
+				cmpsStr.add(fragmentToCompound.get(fragment).size() + "");
 			}
-			set.setResultValue(idx, "mean compounds per hash-code", DoubleArraySummary.create(cmps));
+			set.setResultValue(idx, "mean compounds per fragment", DoubleArraySummary.create(cmps));
 			CountedSet<String> setStr = CountedSet.create(cmpsStr);
 			for (Integer f : new int[] { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 })
-				set.setResultValue(idx, "hash-code with freq " + f + ": ", setStr.getCount(f + ""));
+				set.setResultValue(idx, "fragment with freq " + f + ": ", setStr.getCount(f + ""));
 
-			List<Integer> hashCodes = new ArrayList<>();
+			List<Integer> numFragments = new ArrayList<>();
 			for (int c = 0; c < numCompounds; c++)
-				hashCodes.add(getHashcodesForCompound(c).size());
-			set.setResultValue(idx, "mean hash-codes per compound", DoubleArraySummary.create(hashCodes));
+				numFragments.add(getFragmentsForCompound(c).size());
+			set.setResultValue(idx, "mean fragments per compound", DoubleArraySummary.create(numFragments));
 
 			if (featureSelection == FeatureSelection.fold)
 			{
@@ -780,28 +802,21 @@ public class CFPMiner implements Serializable, AttributeCrossvalidator.Attribute
 
 		StringBuffer s = new StringBuffer();
 		s.append("SMILES,endpoint");
-		for (Integer h : hashCodeToCompound.keySet())
-			s.append("," + h);
+		for (CFPFragment f : fragmentToCompound.keySet())
+			s.append("," + f);
 		s.append("\n");
 		for (int c = 0; c < numCompounds; c++)
 		{
 			s.append(smiles.get(c) + "," + endpoints.get(c));
-			for (Integer h : hashCodeToCompound.keySet())
-				s.append("," + (getHashcodesForCompound(c).contains(h) ? "1" : "0"));
+			for (CFPFragment f : fragmentToCompound.keySet())
+				s.append("," + (getFragmentsForCompound(c).contains(f) ? "1" : "0"));
 			s.append("\n");
 		}
 		FileUtil.writeStringToFile(path, s.toString());
 	}
 
-	public static void validate(String datasetName, int run, String outfile, String classifiers[], List<?> endpoints,
-			CFPMiner... ecfps) throws Exception
+	protected void minePairs(Set<Integer> compoundSubset)
 	{
-		AttributeCrossvalidator cv = new AttributeCrossvalidator(datasetName, ListUtil.cast(String.class, endpoints),
-				ecfps);
-		cv.setOutfile(outfile);
-		cv.setRun(run);
-		cv.setClassifiers(classifiers);
-		cv.run();
 	}
 
 	public void applyFilter()
@@ -813,23 +828,24 @@ public class CFPMiner implements Serializable, AttributeCrossvalidator.Attribute
 	}
 
 	@SuppressWarnings("unchecked")
-	@Override
 	public void applyFilter(Set<Integer> filterSubset)
 	{
 		if (featureSelection != FeatureSelection.filt)
 			return;
 
 		// undo old filter
-		if (hashCodeToCompound_unfiltered != null)
+		if (fragmentToCompound_unfiltered != null)
 		{
-			hashCodeToCompound = (LinkedHashMap<Integer, LinkedHashSet<Integer>>) hashCodeToCompound_unfiltered.clone();
-			compoundToHashCode = null;
-			hashcodeList = null;
+			fragmentToCompound = (LinkedHashMap<CFPFragment, LinkedHashSet<Integer>>) fragmentToCompound_unfiltered
+					.clone();
+			compoundToFragment = null;
+			fragmentList = null;
 		}
 		else
-			hashCodeToCompound_unfiltered = (LinkedHashMap<Integer, LinkedHashSet<Integer>>) hashCodeToCompound.clone();
+			fragmentToCompound_unfiltered = (LinkedHashMap<CFPFragment, LinkedHashSet<Integer>>) fragmentToCompound
+					.clone();
 
-		System.err.println("apply filtering: " + hashCodeToCompound.size());
+		System.err.println("apply filtering: " + fragmentToCompound.size());
 
 		// apply new filter
 		applyMinFreq(filterSubset, absMinFreq);
@@ -842,11 +858,6 @@ public class CFPMiner implements Serializable, AttributeCrossvalidator.Attribute
 		//		System.out.println("filtered to: " + this);
 	}
 
-	protected void minePairs(Set<Integer> compoundSubset)
-	{
-	}
-
-	@Override
 	public String getName()
 	{
 		String suffix = "";
@@ -855,151 +866,6 @@ public class CFPMiner implements Serializable, AttributeCrossvalidator.Attribute
 		else if (featureSelection == FeatureSelection.filt)
 			suffix = "_" + hashfoldsize;
 		return type + "_" + featureSelection + suffix;
-	}
-
-	@Override
-	public int getNumAttributes()
-	{
-		return hashCodeToCompound.size();
-	}
-
-	@Override
-	public String getAttributeName(int a)
-	{
-		return getHashcodeViaIdx(a) + "";
-	}
-
-	@Override
-	public List<String> getAttributeDomain(int a)
-	{
-		return ArrayUtil.toList(new String[] { "0", "1" });
-	}
-
-	@Override
-	public double getAttributeValue(int i, int a)
-	{
-		if (hashCodeToCompound.get(getHashcodeViaIdx(a)) == null)
-			throw new IllegalStateException("no compounds for hashcode, should have been removed! " + a + " "
-					+ getHashcodeViaIdx(a) + " " + hashCodeToCompound.get(getHashcodeViaIdx(a)));
-		if (hashCodeToCompound.get(getHashcodeViaIdx(a)).contains(i))
-			return 1.0;
-		else
-			return 0.0;
-	}
-
-	public static void main(String[] args) throws Exception
-	{
-		Locale.setDefault(Locale.US);
-
-		//		printCollisions();
-
-		Options options = new Options();
-		options.addOption("d", "datasetName", true, "");
-		options.addOption("r", "run", true, "cv run");
-		options.addOption("t", "type", true, "ecfp|fcfp");
-
-		options.addOption("c", "classifier", true, "RaF|SMO|NBy|Ens|RnF");
-		options.addOption("f", "featureSelection", true, "fold|filt|none");
-		options.addOption("s", "hashfoldsize", true, "default:1024, requires folded=true");
-
-		options.addOption(
-				"x",
-				"no-decoy-resample",
-				false,
-				"if param is given, resampling decoys for ChEMBL and MUV datasets will be disabled (and the same sample will be used for runs>1 as for run 1)");
-
-		if (args.length == 0)
-		{
-			System.err.println(options);
-			System.exit(1);
-		}
-		boolean validate = true;
-		if (args.length > 0 && args[0].equals("debug"))
-		{
-			//			for (String name : names)
-			//			{
-			//				main(("--datasetName " + name + " --classifier RandomForest --featureSelection filter").split(" "));
-			//			}
-
-			// ChEMBL_10188
-			// ChEMBL_259
-			// DUD_vegfr2
-			// CPDBAS_Mutagenicity
-			// AMES
-			args = "--datasetName ChEMBL_259 --run 2 --classifier Ens --type ecfp4 --featureSelection filt --hashfoldsize 1024"
-					.split(" ");
-			validate = true;
-			//
-			//			args = "--datasetName DUD_vegfr2 --classifier RandomForest --folded false --pValueThreshold 0.05,0.1"
-			//					.split(" ");
-			//			args = "--datasetName ChEMBL_10188 --classifier RandomForest --featureSelection filter".split(" ");
-			//			args = ("--datasetName CPDBAS_Dog_Primates --runs 3 --classifier RandomForest,SMO "
-			//					+ "--type ecfp,fcfp --folded true,false --hashfoldsize 1024,4096 "
-			//					+ "--pValueThreshold 0.05,0.1 --relMinFreq 0.02,0.01").split(" ");
-		}
-
-		CommandLineParser parser = new BasicParser();
-		CommandLine cmd = parser.parse(options, args);
-		String datasetName = cmd.getOptionValue("d");
-		int run = 1;
-		if (cmd.hasOption("r"))
-			run = Integer.parseInt(cmd.getOptionValue("r"));
-		CFPType type = CFPType.ecfp6;
-		if (cmd.hasOption("t"))
-			type = CFPType.valueOf(cmd.getOptionValue("t"));
-		FeatureSelection featureSelection = FeatureSelection.filt;
-		if (cmd.hasOption("f"))
-			featureSelection = FeatureSelection.valueOf(cmd.getOptionValue("f"));
-		int hashfoldsize = 0;
-		if (cmd.hasOption("s"))
-			hashfoldsize = Integer.parseInt(cmd.getOptionValue("s"));
-		String classifier = "RnF";
-		if (cmd.hasOption("c"))
-			classifier = cmd.getOptionValue("c");
-
-		if (hashfoldsize < 512 && featureSelection != FeatureSelection.none)
-			throw new IllegalArgumentException("please set hashfoldsize");
-
-		CFPDataLoader loader = new CFPDataLoader("data");
-		if (cmd.hasOption("x"))
-			loader.setResampleDecoys(false);
-		CFPDataLoader.Dataset dataset = loader.getDataset(datasetName, run);
-		List<String> list = dataset.smiles;
-		List<String> endpointValues = dataset.endpoints;
-		ListUtil.scramble(new Random(1), list, endpointValues);
-
-		CFPMiner cfps = new CFPMiner(ListUtil.cast(String.class, endpointValues));
-		cfps.type = type;
-		cfps.featureSelection = featureSelection;
-		cfps.hashfoldsize = hashfoldsize;
-		cfps.mine(list);
-		System.out.println(cfps);
-
-		if (validate)
-		{
-			String outfile = "results/"
-					+ resultFileName(run, type, featureSelection, hashfoldsize, classifier, datasetName);
-			validate(datasetName, run, outfile, new String[] { classifier }, endpointValues, new CFPMiner[] { cfps });
-		}
-		else if (featureSelection == FeatureSelection.filt)
-		{
-			cfps.applyFilter();
-			System.out.println(cfps);
-			CFPtoArff.writeTrainingDataset("/tmp/test.arff", cfps, datasetName);
-		}
-	}
-
-	public static String resultFileName(int run, CFPType type, FeatureSelection featureSelection, int hashfoldsize,
-			String classifier, String datasetName)
-	{
-		return "r" + String.format("%02d", run) + "_"
-				+ resultFileName(type, featureSelection, hashfoldsize, classifier, datasetName);
-	}
-
-	public static String resultFileName(CFPType type, FeatureSelection featureSelection, int hashfoldsize,
-			String classifier, String datasetName)
-	{
-		return type + "_" + featureSelection + "_" + hashfoldsize + "_" + classifier + "_" + datasetName + ".arff";
 	}
 
 }
