@@ -2,7 +2,7 @@ package org.kramerlab.cfpminer.weka;
 
 import java.util.List;
 
-import org.kramerlab.cfpminer.CFPPairMiner;
+import org.mg.cdklib.cfp.CFPPairMiner;
 import org.mg.javalib.util.ArrayUtil;
 
 public class AttributeProvidingCFPPairMiner extends AttributeProvidingCFPMiner

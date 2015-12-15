@@ -18,10 +18,10 @@ import java.util.Locale;
 import java.util.Set;
 
 import org.jfree.chart.ChartPanel;
-import org.kramerlab.cfpminer.CFPDataLoader;
-import org.kramerlab.cfpminer.CFPMiner.CFPType;
-import org.kramerlab.cfpminer.CFPMiner.FeatureSelection;
 import org.kramerlab.cfpminer.CFPUtil;
+import org.mg.cdklib.cfp.CFPType;
+import org.mg.cdklib.cfp.FeatureSelection;
+import org.mg.cdklib.data.DataLoader;
 import org.mg.javalib.datamining.Result;
 import org.mg.javalib.datamining.ResultSet;
 import org.mg.javalib.datamining.ResultSetBoxPlot;
@@ -42,7 +42,6 @@ import org.mg.wekalib.data.MergeArffFiles;
 
 public class CreatePaperResults
 {
-
 	int defaultSize = 1024;
 
 	public void paper() throws Exception
@@ -260,7 +259,7 @@ public class CreatePaperResults
 	static String[] ORIG_ALGORITHMS_NICE = new String[ORIG_ALGORITHMS.length];
 	// selected for this run
 	static String[] ALGORITHMS = ORIG_ALGORITHMS;
-	static String[] ALL_DATASETS = new CFPDataLoader("data").allDatasets();
+	static String[] ALL_DATASETS = new DataLoader("data").allDatasets();
 	static String[] DATASETS = ALL_DATASETS;
 	static String[] ALL_PERFORMANCE_MEASURES = ValidationResultsProvider.performanceMeasures;
 
@@ -488,7 +487,7 @@ public class CreatePaperResults
 
 	public void sortDatasets(ResultSet r)
 	{
-		r.sortResults("Dataset", CFPDataLoader.CFPDataComparator);
+		r.sortResults("Dataset", DataLoader.CFPDataComparator);
 	}
 
 	//	public void renameMethods(String alg)
@@ -571,10 +570,10 @@ public class CreatePaperResults
 						return false;
 
 					if (p != null
-							&& (p.equals(CFPDataLoader.BALANCED_DATASETS) || p.equals("MUV") || p.equals("ChEMBL") || p
+							&& (p.equals(DataLoader.BALANCED_DATASETS) || p.equals("MUV") || p.equals("ChEMBL") || p
 									.equals("DUD")))
 					{
-						final Set<String> cat = CFPDataLoader.listCategoryDatasets(p);
+						final Set<String> cat = DataLoader.listCategoryDatasets(p);
 						if (p2 != null)
 							throw new IllegalArgumentException();
 						for (String d : cat)
@@ -701,9 +700,9 @@ public class CreatePaperResults
 
 	public void datasets()
 	{
-		CFPDataLoader d = new CFPDataLoader("data");
+		DataLoader d = new DataLoader("data");
 		String datasets[] = d.allDatasets();
-		Arrays.sort(datasets, 0, datasets.length, CFPDataLoader.CFPDataComparator);
+		Arrays.sort(datasets, 0, datasets.length, DataLoader.CFPDataComparator);
 
 		{
 			ResultSet r = d.getInfo(datasets);
@@ -859,7 +858,7 @@ public class CreatePaperResults
 		ResultSet all = algResults.get(ALL_ALGS);
 
 		String sortedDatasets[] = DATASETS;
-		Arrays.sort(sortedDatasets, CFPDataLoader.CFPDataComparator);
+		Arrays.sort(sortedDatasets, DataLoader.CFPDataComparator);
 		double maxDiff = 0;
 		double maxFeatures = 0;
 
@@ -1797,7 +1796,7 @@ public class CreatePaperResults
 				//			if (p.equals("Accuracy"))
 				//			{
 				//				if (r.getResultValues("Dataset").contains("AMES"))
-				plot.addMarker(p, "AMES", CFPDataLoader.BALANCED_DATASETS);
+				plot.addMarker(p, "AMES", DataLoader.BALANCED_DATASETS);
 				//				else
 				//					plot.addMarker(p, "CPDBAS Dog Primates", CFPDataLoader.BALANCED_DATASETS);
 				plot.addMarker(p, "ChEMBL 100", "ChEMBL");
@@ -2833,7 +2832,7 @@ public class CreatePaperResults
 			//System.out.println(r.toNiceString());
 
 			List<String> datasets = ListUtil.cast(String.class, r.getResultValues("Dataset").values());
-			Collections.sort(datasets, CFPDataLoader.CFPDataComparator);
+			Collections.sort(datasets, DataLoader.CFPDataComparator);
 
 			for (String m : ValidationResultsProvider.performanceMeasures)
 			{

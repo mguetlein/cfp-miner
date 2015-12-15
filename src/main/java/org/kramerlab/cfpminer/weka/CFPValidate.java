@@ -8,11 +8,12 @@ import org.apache.commons.cli.BasicParser;
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
 import org.apache.commons.cli.Options;
-import org.kramerlab.cfpminer.CFPDataLoader;
-import org.kramerlab.cfpminer.CFPMiner;
-import org.kramerlab.cfpminer.CFPMiner.CFPType;
-import org.kramerlab.cfpminer.CFPMiner.FeatureSelection;
 import org.kramerlab.cfpminer.CFPtoArff;
+import org.mg.cdklib.cfp.CFPMiner;
+import org.mg.cdklib.cfp.CFPType;
+import org.mg.cdklib.cfp.FeatureSelection;
+import org.mg.cdklib.data.DataLoader;
+import org.mg.cdklib.data.CDKDataset;
 import org.mg.javalib.util.ListUtil;
 
 public class CFPValidate
@@ -90,10 +91,10 @@ public class CFPValidate
 		if (hashfoldsize < 512 && featureSelection != FeatureSelection.none)
 			throw new IllegalArgumentException("please set hashfoldsize");
 
-		CFPDataLoader loader = new CFPDataLoader("data");
+		DataLoader loader = new DataLoader("data");
 		if (cmd.hasOption("x"))
 			loader.setResampleDecoys(false);
-		CFPDataLoader.Dataset dataset = loader.getDataset(datasetName, run);
+		CDKDataset dataset = loader.getDataset(datasetName, run);
 		List<String> list = dataset.getSmiles();
 		List<String> endpointValues = dataset.getEndpoints();
 		ListUtil.scramble(new Random(1), list, endpointValues);

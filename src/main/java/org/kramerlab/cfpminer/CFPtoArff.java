@@ -3,6 +3,7 @@ package org.kramerlab.cfpminer;
 import java.io.File;
 import java.util.List;
 
+import org.mg.cdklib.cfp.CFPMiner;
 import org.mg.javalib.util.ArrayUtil;
 import org.mg.wekalib.data.ArffWritable;
 import org.mg.wekalib.data.ArffWriter;
@@ -61,7 +62,7 @@ public class CFPtoArff
 			public int getNumInstances()
 			{
 				if (testMol == null)
-					return miner.numCompounds;
+					return miner.getNumCompounds();
 				else
 					return 1;
 			}
@@ -69,7 +70,7 @@ public class CFPtoArff
 			@Override
 			public int getNumAttributes()
 			{
-				return miner.fragmentToCompound.size() + 1;
+				return miner.getNumFragments() + 1;
 			}
 
 			@Override
@@ -81,7 +82,7 @@ public class CFPtoArff
 			@Override
 			public String getAttributeValueSpace(int attribute)
 			{
-				if (attribute == miner.fragmentToCompound.size())
+				if (attribute == miner.getNumFragments())
 					return ArrayUtil.toString(miner.getClassValues(), ",", "{", "}");
 				else
 					return "{0,1}";
@@ -92,7 +93,7 @@ public class CFPtoArff
 			{
 				if (testMol == null)
 				{
-					if (attribute == miner.fragmentToCompound.size())
+					if (attribute == miner.getNumFragments())
 						return miner.getEndpoints().get(instance);
 					else
 						return miner.getFragmentsForCompound(instance).contains(miner.getFragmentViaIdx(attribute)) ? "1"
@@ -100,7 +101,7 @@ public class CFPtoArff
 				}
 				else
 				{
-					if (attribute == miner.fragmentToCompound.size())
+					if (attribute == miner.getNumFragments())
 						return "?";
 					else
 						return miner.getFragmentsForTestCompound(testMol).contains(miner.getFragmentViaIdx(attribute)) ? "1"
@@ -111,7 +112,7 @@ public class CFPtoArff
 			@Override
 			public String getAttributeName(int attribute)
 			{
-				if (attribute == miner.fragmentToCompound.size())
+				if (attribute == miner.getNumFragments())
 					return endpointName;
 				else
 					return miner.getFragmentViaIdx(attribute) + "";

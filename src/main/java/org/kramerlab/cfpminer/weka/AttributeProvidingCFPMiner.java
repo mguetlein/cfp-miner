@@ -3,7 +3,7 @@ package org.kramerlab.cfpminer.weka;
 import java.util.List;
 import java.util.Set;
 
-import org.kramerlab.cfpminer.CFPMiner;
+import org.mg.cdklib.cfp.CFPMiner;
 import org.mg.javalib.util.ArrayUtil;
 
 public class AttributeProvidingCFPMiner implements AttributeProvider

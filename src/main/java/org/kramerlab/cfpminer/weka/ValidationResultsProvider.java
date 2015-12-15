@@ -14,9 +14,9 @@ import java.util.List;
 import javax.swing.JScrollPane;
 
 import org.jfree.chart.ChartPanel;
-import org.kramerlab.cfpminer.CFPMiner;
-import org.kramerlab.cfpminer.CFPMiner.CFPType;
-import org.kramerlab.cfpminer.CFPMiner.FeatureSelection;
+import org.mg.cdklib.cfp.CFPMiner;
+import org.mg.cdklib.cfp.CFPType;
+import org.mg.cdklib.cfp.FeatureSelection;
 import org.mg.javalib.datamining.Result;
 import org.mg.javalib.datamining.ResultSet;
 import org.mg.javalib.datamining.ResultSetBoxPlot;

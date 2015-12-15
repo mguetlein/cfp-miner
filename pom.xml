@@ -89,177 +89,7 @@
 	<version>0.6.0</version>
     </dependency>
   
-	 <dependency>
-      <groupId>org.openscience.cdk</groupId>
-      <artifactId>cdk-core</artifactId>
-      <version>${cdk.version}</version>
-    </dependency>
-    <dependency>
-      <groupId>org.openscience.cdk</groupId>
-      <artifactId>cdk-isomorphism</artifactId>
-      <version>${cdk.version}</version>
-    </dependency>
-    <dependency>
-      <groupId>org.openscience.cdk</groupId>
-      <artifactId>cdk-atomtype</artifactId>
-      <version>${cdk.version}</version>
-    </dependency>
-    <!-- 
-        <dependency>
-    	<groupId>org.openscience.cdk</groupId>
-    	<artifactId>cdk-data</artifactId>
-    	<version>${cdk.version}</version>
-    </dependency>
-     -->
-    <dependency>
-      <groupId>org.openscience.cdk</groupId>
-      <artifactId>cdk-smsd</artifactId>
-      <version>${cdk.version}</version>
-    </dependency>
-    <dependency>
-      <groupId>org.openscience.cdk</groupId>
-      <artifactId>cdk-extra</artifactId>
-      <version>${cdk.version}</version>
-      <scope>compile</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.openscience.cdk</groupId>
-      <artifactId>cdk-qsar</artifactId>
-      <version>${cdk.version}</version>
-      <scope>compile</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.openscience.cdk</groupId>
-      <artifactId>cdk-ionpot</artifactId>
-      <version>${cdk.version}</version>
-    </dependency>
-    <dependency>
-      <groupId>org.openscience.cdk</groupId>
-      <artifactId>cdk-qsarmolecular</artifactId>
-      <version>${cdk.version}</version>
-      <scope>compile</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.openscience.cdk</groupId>
-      <artifactId>cdk-qsarionpot</artifactId>
-      <version>${cdk.version}</version>
-    </dependency>
-    <dependency>
-      <groupId>org.openscience.cdk</groupId>
-      <artifactId>cdk-interfaces</artifactId>
-      <version>${cdk.version}</version>
-      <scope>compile</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.openscience.cdk</groupId>
-      <artifactId>cdk-standard</artifactId>
-      <version>${cdk.version}</version>
-      <scope>compile</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.openscience.cdk</groupId>
-      <artifactId>cdk-io</artifactId>
-      <version>${cdk.version}</version>
-      <scope>compile</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.openscience.cdk</groupId>
-      <artifactId>cdk-ioformats</artifactId>
-      <version>${cdk.version}</version>
-      <scope>compile</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.openscience.cdk</groupId>
-      <artifactId>cdk-silent</artifactId>
-      <version>${cdk.version}</version>
-      <scope>compile</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.openscience.cdk</groupId>
-      <artifactId>cdk-log4j</artifactId>
-      <version>${cdk.version}</version>
-      <scope>compile</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.openscience.cdk</groupId>
-      <artifactId>cdk-inchi</artifactId>
-      <version>${cdk.version}</version>
-      <scope>compile</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.openscience.cdk</groupId>
-      <artifactId>cdk-data</artifactId>
-      <version>${cdk.version}</version>
-      <scope>compile</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.openscience.cdk</groupId>
-      <artifactId>cdk-dict</artifactId>
-      <version>${cdk.version}</version>
-      <scope>compile</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.openscience.cdk</groupId>
-      <artifactId>cdk-structgen</artifactId>
-      <version>${cdk.version}</version>
-      <scope>compile</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.openscience.cdk</groupId>
-      <artifactId>cdk-qsarprotein</artifactId>
-      <version>${cdk.version}</version>
-      <scope>compile</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.openscience.cdk</groupId>
-      <artifactId>cdk-pdb</artifactId>
-      <version>${cdk.version}</version>
-      <scope>compile</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.openscience.cdk</groupId>
-      <artifactId>cdk-pdbcml</artifactId>
-      <version>${cdk.version}</version>
-      <scope>compile</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.openscience.cdk</groupId>
-      <artifactId>cdk-fingerprint</artifactId>
-      <version>${cdk.version}</version>
-    </dependency>
-    <dependency>
-      <groupId>org.openscience.cdk</groupId>
-      <artifactId>cdk-renderbasic</artifactId>
-      <version>${cdk.version}</version>
-    </dependency>
-    <dependency>
-      <groupId>org.openscience.cdk</groupId>
-      <artifactId>cdk-renderextra</artifactId>
-      <version>${cdk.version}</version>
-    </dependency>
-        <dependency>
-      <groupId>org.openscience.cdk</groupId>
-      <artifactId>cdk-renderawt</artifactId>
-      <version>${cdk.version}</version>
-    </dependency>
-    <dependency>
-      <groupId>org.openscience.cdk</groupId>
-      <artifactId>cdk-builder3d</artifactId>
-      <version>${cdk.version}</version>
-    </dependency>
-    <dependency>
-      <groupId>org.openscience.cdk</groupId>
-      <artifactId>cdk-sdg</artifactId>
-      <version>${cdk.version}</version>
-    </dependency>
-    
-    <!-- <dependency>
-      <groupId>org.openscience.cdk</groupId>
-      <artifactId>cdk-legacy</artifactId>
-      <version>${cdk.version}</version>
-     </dependency>-->
-
- 
+	 
     
          <dependency>
     	<groupId>org.mg.javalib</groupId>
@@ -271,6 +101,13 @@
      <dependency>
         <groupId>org.mg.wekalib</groupId>
         <artifactId>WEKALib</artifactId>
+        <version>0.0.1-SNAPSHOT</version>
+    </dependency>  
+
+
+     <dependency>
+        <groupId>org.mg.cdklib</groupId>
+        <artifactId>CDKLib</artifactId>
         <version>0.0.1-SNAPSHOT</version>
     </dependency>  
 
