@@ -3,8 +3,10 @@ package org.kramerlab.cfpminer;
 import java.io.File;
 import java.util.List;
 
+import org.mg.cdklib.CDKConverter;
 import org.mg.cdklib.cfp.CFPMiner;
 import org.mg.javalib.util.ArrayUtil;
+import org.mg.javalib.util.ListUtil;
 import org.mg.wekalib.data.ArffWritable;
 import org.mg.wekalib.data.ArffWriter;
 import org.openscience.cdk.interfaces.IAtomContainer;
@@ -15,35 +17,53 @@ public class CFPtoArff
 {
 	public static Instances getTrainingDataset(CFPMiner miner, String endpointName) throws Exception
 	{
-		return ArffWriter.toInstances(getArffWritable(miner, endpointName, null));
+		Instances inst = ArffWriter.toInstances(getArffWritable(miner, endpointName, null, null));
+		inst.setClassIndex(inst.numAttributes() - 1);
+		return inst;
 	}
 
 	public static void writeTrainingDataset(String arffFile, CFPMiner miner, String endpointName) throws Exception
 	{
-		ArffWriter.writeToArffFile(new File(arffFile), getArffWritable(miner, endpointName, null));
+		ArffWriter.writeToArffFile(new File(arffFile), getArffWritable(miner, endpointName, null, null));
 	}
 
 	public static void writeTestDataset(String arffFile, CFPMiner miner, String endpointName, IAtomContainer testMol)
 			throws Exception
 	{
-		ArffWriter.writeToArffFile(new File(arffFile), getArffWritable(miner, endpointName, testMol));
+		ArffWriter.writeToArffFile(new File(arffFile),
+				getArffWritable(miner, endpointName, new IAtomContainer[] { testMol }, null));
 	}
 
 	public static Instances getTestDataset(CFPMiner miner, String endpointName, IAtomContainer testMol)
 			throws Exception
 	{
-		return ArffWriter.toInstances(getArffWritable(miner, endpointName, testMol));
+		Instances inst = ArffWriter.toInstances(getArffWritable(miner, endpointName, new IAtomContainer[] { testMol },
+				null));
+		inst.setClassIndex(inst.numAttributes() - 1);
+		return inst;
+	}
+
+	public static Instances getTestDataset(CFPMiner miner, String endpointName, List<String> smiles,
+			List<String> endpoints) throws Exception
+	{
+		IAtomContainer mols[] = new IAtomContainer[smiles.size()];
+		for (int i = 0; i < mols.length; i++)
+			mols[i] = CDKConverter.parseSmiles(smiles.get(i));
+		Instances inst = ArffWriter
+				.toInstances(getArffWritable(miner, endpointName, mols, ListUtil.toArray(endpoints)));
+		inst.setClassIndex(inst.numAttributes() - 1);
+		return inst;
 	}
 
 	private static ArffWritable getArffWritable(final CFPMiner miner, final String endpointName,
-			final IAtomContainer testMol) throws Exception
+			final IAtomContainer[] testMol, final String[] testEndpoints) throws Exception
 	{
 		return new ArffWritable()
 		{
 			@Override
 			public String getRelationName()
 			{
-				return endpointName + (testMol != null ? "_test" : "");
+				return endpointName + (testMol == null ? "_test" : "");
 			}
 
 			@Override
@@ -64,7 +84,7 @@ public class CFPtoArff
 				if (testMol == null)
 					return miner.getNumCompounds();
 				else
-					return 1;
+					return testMol.length;
 			}
 
 			@Override
@@ -102,10 +122,15 @@ public class CFPtoArff
 				else
 				{
 					if (attribute == miner.getNumFragments())
-						return "?";
+					{
+						if (testEndpoints == null)
+							return "?";
+						else
+							return testEndpoints[instance];
+					}
 					else
-						return miner.getFragmentsForTestCompound(testMol).contains(miner.getFragmentViaIdx(attribute)) ? "1"
-								: "0";
+						return miner.getFragmentsForTestCompound(testMol[instance]).contains(
+								miner.getFragmentViaIdx(attribute)) ? "1" : "0";
 				}
 			}
 
