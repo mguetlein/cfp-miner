@@ -4,8 +4,5 @@ data
 .project
 .settings
 data_collisions
-results_rnf results_rnf_merged
 cfpminer.jar
-results_rnf/ results_rnf_merged/
-results_rnf
-results_rnf_merged
+results*
