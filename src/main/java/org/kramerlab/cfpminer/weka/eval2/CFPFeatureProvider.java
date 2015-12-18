@@ -5,13 +5,13 @@ import org.mg.cdklib.cfp.CFPMiner;
 import org.mg.cdklib.cfp.CFPType;
 import org.mg.cdklib.cfp.FeatureSelection;
 import org.mg.cdklib.data.CDKDataset;
-import org.mg.javalib.util.HashUtil;
-import org.mg.wekalib.eval2.Blocker;
 import org.mg.wekalib.eval2.DataSet;
 import org.mg.wekalib.eval2.DefaultJobOwner;
 import org.mg.wekalib.eval2.FeatureProvider;
 import org.mg.wekalib.eval2.FoldDataSet;
 import org.mg.wekalib.eval2.WekaInstancesDataSet;
+import org.mg.wekalib.eval2.util.Blocker;
+import org.mg.wekalib.eval2.util.Printer;
 
 import weka.core.Instances;
 
@@ -36,17 +36,25 @@ public class CFPFeatureProvider extends DefaultJobOwner<DataSet[]> implements Fe
 	}
 
 	@Override
-	public int hashCode()
+	public String key()
 	{
-		//		System.out.println(hashfoldSize + " " + featSelection + " " + type + " " + train + "\n" + train.hashCode()
-		//				+ "\n" + test.hashCode());
-		return HashUtil.hashCode(hashfoldSize, featSelection, type, train, test);
+		StringBuffer b = new StringBuffer();
+		b.append(hashfoldSize);
+		b.append('#');
+		b.append(featSelection);
+		b.append('#');
+		b.append(type);
+		b.append('#');
+		b.append(train == null ? null : train.key());
+		b.append('#');
+		b.append(test == null ? null : test.key());
+		return b.toString();
 	}
 
 	@Override
 	public Runnable nextJob() throws Exception
 	{
-		if (!Blocker.block(hashCode()))
+		if (!Blocker.block(key()))
 			return null;
 		return new Runnable()
 		{
@@ -54,7 +62,8 @@ public class CFPFeatureProvider extends DefaultJobOwner<DataSet[]> implements Fe
 			{
 				try
 				{
-					System.out.println(CFPFeatureProvider.this.hashCode() + " mining features on " + train.getName());
+					Printer.println("CFPFeatures: mining features on " + train.getName() + " "
+							+ CFPFeatureProvider.this.key());
 
 					DataSet trainX = train;
 					while (trainX instanceof FoldDataSet)
@@ -93,7 +102,7 @@ public class CFPFeatureProvider extends DefaultJobOwner<DataSet[]> implements Fe
 				}
 				finally
 				{
-					Blocker.unblock(CFPFeatureProvider.this.hashCode());
+					Blocker.unblock(CFPFeatureProvider.this.key());
 				}
 			};
 		};

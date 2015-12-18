@@ -8,6 +8,7 @@ import org.mg.cdklib.cfp.FeatureSelection;
 import org.mg.cdklib.data.CDKDataset;
 import org.mg.cdklib.data.DataLoader;
 import org.mg.javalib.util.ListUtil;
+import org.mg.wekalib.eval2.CV;
 import org.mg.wekalib.eval2.CVEvalModel;
 import org.mg.wekalib.eval2.CVEvaluator;
 import org.mg.wekalib.eval2.FeatureModel;
@@ -19,7 +20,30 @@ import org.mg.wekalib.eval2.RandomForestModel;
 
 public class CFPValidate2
 {
-	public static void demo() throws Exception
+	public static JobOwner<?> singleCV() throws Exception
+	{
+		String datasetName = "CPDBAS_MultiCellCall";
+		CDKDataset dataset = new DataLoader("data").getDataset(datasetName);
+		CDKDataSet data = new CDKDataSet(datasetName, dataset);
+
+		CFPFeatureProvider feat = new CFPFeatureProvider(1024, FeatureSelection.filt, CFPType.ecfp4);
+
+		Model basicModel = new RandomForestModel();
+
+		FeatureModel fm = new FeatureModel();
+		fm.setFeatureProvider(feat);
+		fm.setModel(basicModel);
+
+		CV cv = new CV();
+		cv.setDataSet(data);
+		cv.setModel(fm);
+		cv.setNumFolds(10);
+		cv.setRandomSeed(4);
+
+		return cv;
+	}
+
+	public static JobOwner<?> cvEval() throws Exception
 	{
 		String datasetName = "CPDBAS_MultiCellCall";
 		CDKDataset dataset = new DataLoader("data").getDataset(datasetName);
@@ -54,26 +78,10 @@ public class CFPValidate2
 		cvm.setTrainingDataset(data);
 		cvm.setTestDataset(data);
 
-		JobOwner<?> job = cvm;
-		if (!job.isDone())
-		{
-			Runnable r = job.nextJob();
-			while (r != null)
-			{
-				r.run();
-				if (!job.isDone())
-					r = job.nextJob();
-				else
-					r = null;
-			}
-		}
-		else
-			System.out.println("done " + job.hashCode());
-
-		System.exit(0);
+		return cvm;
 	}
 
-	public static void nestedCV() throws Exception
+	public static JobOwner<?> nestedCV() throws Exception
 	{
 		String datasetName = "CPDBAS_MultiCellCall";
 		CDKDataset dataset = new DataLoader("data").getDataset(datasetName);
@@ -114,7 +122,11 @@ public class CFPValidate2
 		outerCV.setNumFolds(10);
 		outerCV.setRepetitions(1);
 
-		JobOwner<?> job = outerCV;
+		return outerCV;
+	}
+
+	public static void runSequentially(JobOwner<?> job) throws Exception
+	{
 		if (!job.isDone())
 		{
 			Runnable r = job.nextJob();
@@ -128,13 +140,34 @@ public class CFPValidate2
 			}
 		}
 		else
-			System.out.println("done " + job.hashCode());
+			System.out.println("done " + job.key());
+	}
 
-		System.exit(0);
+	public static void runParrallel(final JobOwner<?> job) throws Exception
+	{
+		for (int i = 0; i < 2; i++)
+		{
+			Thread th = new Thread(new Runnable()
+			{
+				@Override
+				public void run()
+				{
+					try
+					{
+						runSequentially(job);
+					}
+					catch (Exception e)
+					{
+						throw new RuntimeException(e);
+					}
+				}
+			});
+			th.start();
+		}
 	}
 
 	public static void main(String[] args) throws Exception
 	{
-		nestedCV();
+		runParrallel(singleCV());
 	}
 }

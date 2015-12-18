@@ -3,8 +3,8 @@ package org.kramerlab.cfpminer.weka.eval2;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.apache.commons.codec.digest.DigestUtils;
 import org.mg.cdklib.data.CDKDataset;
-import org.mg.javalib.util.HashUtil;
 import org.mg.wekalib.eval2.AbstractDataSet;
 import org.mg.wekalib.eval2.DataSet;
 
@@ -14,17 +14,30 @@ public class CDKDataSet extends AbstractDataSet
 {
 	String name;
 	CDKDataset d;
+	String key;
 
 	public CDKDataSet(String name, CDKDataset d)
 	{
 		this.name = name;
 		this.d = d;
+
+		StringBuffer b = new StringBuffer();
+		b.append(name);
+		b.append('#');
+		b.append(d.getDatasetName());
+		b.append('#');
+		b.append(d.getEndpoints());
+		b.append('#');
+		b.append(d.getSmiles());
+		b.append('#');
+		b.append(d.getWarnings());
+		key = DigestUtils.md5Hex(b.toString());
 	}
 
 	@Override
-	public int hashCode()
+	public String key()
 	{
-		return HashUtil.hashCode(name, d);
+		return key;
 	}
 
 	public CDKDataset getCDKDataset()
