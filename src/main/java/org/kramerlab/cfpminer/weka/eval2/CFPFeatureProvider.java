@@ -5,13 +5,11 @@ import org.mg.cdklib.cfp.CFPMiner;
 import org.mg.cdklib.cfp.CFPType;
 import org.mg.cdklib.cfp.FeatureSelection;
 import org.mg.cdklib.data.CDKDataset;
-import org.mg.wekalib.eval2.DataSet;
-import org.mg.wekalib.eval2.DefaultJobOwner;
-import org.mg.wekalib.eval2.FeatureProvider;
-import org.mg.wekalib.eval2.FoldDataSet;
-import org.mg.wekalib.eval2.WekaInstancesDataSet;
-import org.mg.wekalib.eval2.util.Blocker;
-import org.mg.wekalib.eval2.util.Printer;
+import org.mg.wekalib.eval2.data.DataSet;
+import org.mg.wekalib.eval2.data.FoldDataSet;
+import org.mg.wekalib.eval2.data.WekaInstancesDataSet;
+import org.mg.wekalib.eval2.job.DefaultJobOwner;
+import org.mg.wekalib.eval2.job.FeatureProvider;
 
 import weka.core.Instances;
 
@@ -36,35 +34,20 @@ public class CFPFeatureProvider extends DefaultJobOwner<DataSet[]> implements Fe
 	}
 
 	@Override
-	public String key()
+	public String getKey()
 	{
-		StringBuffer b = new StringBuffer();
-		b.append(hashfoldSize);
-		b.append('#');
-		b.append(featSelection);
-		b.append('#');
-		b.append(type);
-		b.append('#');
-		b.append(train == null ? null : train.key());
-		b.append('#');
-		b.append(test == null ? null : test.key());
-		return b.toString();
+		return getKey(hashfoldSize, featSelection, type, train, test);
 	}
 
 	@Override
 	public Runnable nextJob() throws Exception
 	{
-		if (!Blocker.block(key()))
-			return null;
-		return new Runnable()
+		return blockedJob("CFPFeatures: mining features on " + train.getName(), new Runnable()
 		{
 			public void run()
 			{
 				try
 				{
-					Printer.println("CFPFeatures: mining features on " + train.getName() + " "
-							+ CFPFeatureProvider.this.key());
-
 					DataSet trainX = train;
 					while (trainX instanceof FoldDataSet)
 						trainX = ((FoldDataSet) trainX).getSelf();
@@ -100,12 +83,8 @@ public class CFPFeatureProvider extends DefaultJobOwner<DataSet[]> implements Fe
 				{
 					throw new RuntimeException(e);
 				}
-				finally
-				{
-					Blocker.unblock(CFPFeatureProvider.this.key());
-				}
 			};
-		};
+		});
 	}
 
 	@Override
@@ -127,7 +106,7 @@ public class CFPFeatureProvider extends DefaultJobOwner<DataSet[]> implements Fe
 	}
 
 	@Override
-	public FeatureProvider cloneFeatureProvider()
+	public FeatureProvider cloneJob()
 	{
 		FeatureProvider fp = new CFPFeatureProvider(hashfoldSize, featSelection, type);
 		fp.setTestDataset(test);

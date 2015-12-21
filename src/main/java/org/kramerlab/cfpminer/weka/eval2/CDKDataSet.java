@@ -5,8 +5,8 @@ import java.util.List;
 
 import org.apache.commons.codec.digest.DigestUtils;
 import org.mg.cdklib.data.CDKDataset;
-import org.mg.wekalib.eval2.AbstractDataSet;
-import org.mg.wekalib.eval2.DataSet;
+import org.mg.wekalib.eval2.data.AbstractDataSet;
+import org.mg.wekalib.eval2.data.DataSet;
 
 import weka.core.Instances;
 
@@ -35,9 +35,9 @@ public class CDKDataSet extends AbstractDataSet
 	}
 
 	@Override
-	public String key()
+	public String getKey()
 	{
-		return key;
+		return getKey(key);
 	}
 
 	public CDKDataset getCDKDataset()

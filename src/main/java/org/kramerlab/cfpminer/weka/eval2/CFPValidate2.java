@@ -11,12 +11,13 @@ import org.mg.javalib.util.ListUtil;
 import org.mg.wekalib.eval2.CV;
 import org.mg.wekalib.eval2.CVEvalModel;
 import org.mg.wekalib.eval2.CVEvaluator;
-import org.mg.wekalib.eval2.FeatureModel;
-import org.mg.wekalib.eval2.FeatureProvider;
-import org.mg.wekalib.eval2.JobOwner;
-import org.mg.wekalib.eval2.Model;
-import org.mg.wekalib.eval2.NaiveBayesModel;
-import org.mg.wekalib.eval2.RandomForestModel;
+import org.mg.wekalib.eval2.MultiDatasetRunner;
+import org.mg.wekalib.eval2.job.FeatureProvider;
+import org.mg.wekalib.eval2.job.JobOwner;
+import org.mg.wekalib.eval2.model.FeatureModel;
+import org.mg.wekalib.eval2.model.Model;
+import org.mg.wekalib.eval2.model.NaiveBayesModel;
+import org.mg.wekalib.eval2.model.RandomForestModel;
 
 public class CFPValidate2
 {
@@ -68,25 +69,21 @@ public class CFPValidate2
 		}
 
 		CVEvaluator cv = new CVEvaluator();
-		//cv.setDataSet(data);
+		cv.setDataSet(data);
 		cv.setModels(ListUtil.toArray(featModels));
 		cv.setNumFolds(10);
 		cv.setRepetitions(1);
 
-		CVEvalModel cvm = new CVEvalModel();
-		cvm.setCvEvaluator(cv);
-		cvm.setTrainingDataset(data);
-		cvm.setTestDataset(data);
+		//		CVEvalModel cvm = new CVEvalModel();
+		//		cvm.setCvEvaluator(cv);
+		//		cvm.setTrainingDataset(data);
+		//		cvm.setTestDataset(data);
 
-		return cvm;
+		return cv;
 	}
 
 	public static JobOwner<?> nestedCV() throws Exception
 	{
-		String datasetName = "CPDBAS_MultiCellCall";
-		CDKDataset dataset = new DataLoader("data").getDataset(datasetName);
-		CDKDataSet data = new CDKDataSet(datasetName, dataset);
-
 		CFPFeatureProvider feats[] = new CFPFeatureProvider[] {
 				new CFPFeatureProvider(1024, FeatureSelection.filt, CFPType.ecfp4),
 				new CFPFeatureProvider(1024, FeatureSelection.fold, CFPType.ecfp4) };
@@ -106,68 +103,35 @@ public class CFPValidate2
 		}
 
 		CVEvaluator innerCV = new CVEvaluator();
-		//cv.setDataSet(data);
 		innerCV.setModels(ListUtil.toArray(featModels));
 		innerCV.setNumFolds(10);
-		innerCV.setRepetitions(1);
+		innerCV.setRepetitions(3);
 
 		CVEvalModel cvm = new CVEvalModel();
 		cvm.setCvEvaluator(innerCV);
-		//		cvm.setTrainingDataset(data);
-		//		cvm.setTestDataset(data);
 
 		CVEvaluator outerCV = new CVEvaluator();
-		outerCV.setDataSet(data);
 		outerCV.setModels(cvm);
 		outerCV.setNumFolds(10);
-		outerCV.setRepetitions(1);
+		outerCV.setRepetitions(3);
 
-		return outerCV;
-	}
-
-	public static void runSequentially(JobOwner<?> job) throws Exception
-	{
-		if (!job.isDone())
+		List<CDKDataSet> data = new ArrayList<>();
+		for (String datasetName : new String[] { "CPDBAS_Mutagenicity", "DUD_vegfr2" })
 		{
-			Runnable r = job.nextJob();
-			while (r != null)
-			{
-				r.run();
-				if (!job.isDone())
-					r = job.nextJob();
-				else
-					r = null;
-			}
+			CDKDataset dataset = new DataLoader("data").getDataset(datasetName);
+			data.add(new CDKDataSet(datasetName, dataset));
 		}
-		else
-			System.out.println("done " + job.key());
-	}
+		//outerCV.setDataSet(data.get(0));
 
-	public static void runParrallel(final JobOwner<?> job) throws Exception
-	{
-		for (int i = 0; i < 2; i++)
-		{
-			Thread th = new Thread(new Runnable()
-			{
-				@Override
-				public void run()
-				{
-					try
-					{
-						runSequentially(job);
-					}
-					catch (Exception e)
-					{
-						throw new RuntimeException(e);
-					}
-				}
-			});
-			th.start();
-		}
+		MultiDatasetRunner<String> d = new MultiDatasetRunner<>();
+		d.setJob(outerCV);
+		d.setDataSets(ListUtil.toArray(data));
+
+		return d;
 	}
 
 	public static void main(String[] args) throws Exception
 	{
-		runParrallel(singleCV());
+		nestedCV().runSequentially();
 	}
 }

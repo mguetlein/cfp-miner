@@ -21,7 +21,7 @@
 		  <configuration>
 		    <archive>
 		      <manifest>
-		        <mainClass>org.kramerlab.cfpminer.CFPMiner</mainClass>
+		        <mainClass>org.kramerlab.cfpminer.weka.eval2.CFPValidate2</mainClass>
 		      </manifest>
 			  <manifestEntries>
         	       <Permissions>all-permissions</Permissions>
