@@ -35,9 +35,9 @@ public class CDKDataSet extends AbstractDataSet
 	}
 
 	@Override
-	public String getKey()
+	public String getKeyContent()
 	{
-		return getKey(key);
+		return getKeyContent(key);
 	}
 
 	public CDKDataset getCDKDataset()
@@ -61,7 +61,8 @@ public class CDKDataSet extends AbstractDataSet
 			smiles.add(d.getSmiles().get(i));
 			endpoints.add(d.getEndpoints().get(i));
 		}
-		return new CDKDataSet(name, new CDKDataset(d.getDatasetName(), smiles, endpoints, d.getWarnings()));
+		return new CDKDataSet(name, new CDKDataset(d.getDatasetName(), smiles, endpoints,
+				d.getWarnings()));
 	}
 
 	@Override

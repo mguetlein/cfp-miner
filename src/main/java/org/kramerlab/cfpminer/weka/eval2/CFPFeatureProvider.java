@@ -1,5 +1,7 @@
 package org.kramerlab.cfpminer.weka.eval2;
 
+import java.io.File;
+
 import org.kramerlab.cfpminer.CFPtoArff;
 import org.mg.cdklib.cfp.CFPMiner;
 import org.mg.cdklib.cfp.CFPType;
@@ -30,13 +32,20 @@ public class CFPFeatureProvider extends DefaultJobOwner<DataSet[]> implements Fe
 
 	public String getName()
 	{
-		return "CFP " + featSelection;
+		return "CFP " + hashfoldSize + " " + featSelection + " " + type;
 	}
 
 	@Override
-	public String getKey()
+	public String getKeyPrefix()
 	{
-		return getKey(hashfoldSize, featSelection, type, train, test);
+		return "CFP-" + hashfoldSize + '-' + featSelection + '-' + type
+				+ (train != null ? (File.separator + train.getKeyPrefix()) : "");
+	}
+
+	@Override
+	public String getKeyContent()
+	{
+		return getKeyContent(hashfoldSize, featSelection, type, train, test);
 	}
 
 	@Override
@@ -71,13 +80,14 @@ public class CFPFeatureProvider extends DefaultJobOwner<DataSet[]> implements Fe
 					//					System.err.println(cfp.getSummary(false));
 					//					System.err.flush();
 					Instances trainI = CFPtoArff.getTrainingDataset(cfp, trainCDK.getDatasetName());
-					trainI.setRelationName("Mined features on " + train.getName());
+					trainI.setRelationName(getKeyPrefix());
 					//					System.err.println(trainI);
-					Instances testI = CFPtoArff.getTestDataset(cfp, trainCDK.getDatasetName(), testCDK.getSmiles(),
-							testCDK.getEndpoints());
-					testI.setRelationName("Mined features on " + test.getName());
+					Instances testI = CFPtoArff.getTestDataset(cfp, trainCDK.getDatasetName(),
+							testCDK.getSmiles(), testCDK.getEndpoints());
+					testI.setRelationName(getKeyPrefix());
 					//					System.err.println(testI);
-					setResult(new DataSet[] { new WekaInstancesDataSet(trainI), new WekaInstancesDataSet(testI) });
+					setResult(new DataSet[] { new WekaInstancesDataSet(trainI),
+							new WekaInstancesDataSet(testI) });
 				}
 				catch (Exception e)
 				{
