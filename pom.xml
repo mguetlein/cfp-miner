@@ -70,11 +70,17 @@
     <repository>
         <id>jgu</id>
         <name>jgu-internal</name>
-        <url>http://fantomas.informatik.uni-mainz.de/mvnrepo/repository</url>
+        <url>http://mrbungle.zdv.uni-mainz.de/mvnrepo/repository</url>
     </repository>
   </repositories>
  
    <dependencies>
+   
+<dependency>
+  <groupId>biz.paluch.redis</groupId>
+  <artifactId>lettuce</artifactId>
+  <version>3.3.2.Final</version>
+</dependency>   
 
 <dependency>
 	<groupId>commons-cli</groupId>
