@@ -1,6 +1,8 @@
 package org.kramerlab.cfpminer.weka;
 
+import java.awt.Color;
 import java.awt.Dimension;
+import java.awt.Font;
 import java.awt.Window;
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -15,9 +17,14 @@ import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 
+import javax.swing.JLabel;
+import javax.swing.SwingConstants;
+
 import org.jfree.chart.ChartPanel;
+import org.jfree.chart.JFreeChart;
 import org.kramerlab.cfpminer.CFPTest;
 import org.mg.cdklib.cfp.CFPType;
 import org.mg.cdklib.cfp.FeatureSelection;
@@ -40,6 +47,9 @@ import org.mg.javalib.util.StringUtil;
 import org.mg.javalib.util.SwingUtil;
 import org.mg.wekalib.data.MergeArffFiles;
 
+import com.jgoodies.forms.builder.DefaultFormBuilder;
+import com.jgoodies.forms.layout.FormLayout;
+
 public class CreatePaperResults
 {
 	int defaultSize = 1024;
@@ -54,13 +64,13 @@ public class CreatePaperResults
 		//		ArrayUtil.scramble(DATASETS, new Random(3));
 
 		//		ALGORITHMS = new String[] { "NBy" };
-		write = false;
-		showCharts = true;
+		write = true;
+		showCharts = false;
 		boolean onlyPaper = false;
 
 		//		tableCollisions(false);
 		//ranking("", "AUP");
-		//datasets();
+		datasets();
 
 		//		read("ecfp4");
 		//		filter("AllOr1024", getFilter(null, null, 1024), getFilter(null, FeatureSelection.none, null));
@@ -84,37 +94,51 @@ public class CreatePaperResults
 		//		diffChart();
 
 		{
-			// LINE - PLOTS
+			//			// LINE - PLOTS
+			//			ValidationResultsProvider
+			//					.setPerformanceMeasures(new String[] { "Accuracy", "AUC", "AUPRC" });
 			//			read("ecfp4_" + defaultSize + "orAll", RemoveObsoleteSizes.no,
 			//					getFilter(CFPType.ecfp4, null, null, defaultSize),
 			//					getFilter(CFPType.ecfp4, null, FeatureSelection.none, null));
 			//			addRuntimes();
 			//			lineChartFeatureSelection();
-			//			ValidationResultsProvider.setPerformanceMeasures(new String[] { "AUP" });
+			//			ValidationResultsProvider.setPerformanceMeasures(new String[] { "AUPRC" });
 			//			lineChartFeatureSelection();
 		}
 
 		{
-			//			// DIFF - CHARTS
-			int chartSize = 1024;
-			ValidationResultsProvider.setPerformanceMeasures(new String[] { "AUC", "AUP" });
-			read("ecfp4_" + chartSize, RemoveObsoleteSizes.no, getFilter(CFPType.ecfp4, null, null, chartSize));
-			addRuntimes();
-			diffChart();
+			//			//			// DIFF - CHARTS
+			//			//Integer chartSize = 2048;
+			//			for (Integer chartSize : SIZES)
+			//			{
+			//				Map<FeatureSelection[], Map<String, ChartPanel>> charts = new LinkedHashMap<>();
+			//				//int chartSize = 4096;
 			//
-			//			ValidationResultsProvider.setPerformanceMeasures(new String[] { "AUC", "AUP" });
-			//			read("ecfp4_filt" + chartSize + "orAll", RemoveObsoleteSizes.yes_remove_none,
-			//					getFilter(CFPType.ecfp4, null, FeatureSelection.filt, chartSize),
-			//					getFilter(CFPType.ecfp4, null, FeatureSelection.none, null));
-			//			addRuntimes();
-			//			diffChart();
+			//				ValidationResultsProvider.setPerformanceMeasures(new String[] { "AUC", "AUPRC" });
+			//				read("ecfp4_" + chartSize, RemoveObsoleteSizes.no,
+			//						getFilter(CFPType.ecfp4, null, null, chartSize));
+			//				addRuntimes();
+			//				charts.put(new FeatureSelection[] { FeatureSelection.filt, FeatureSelection.fold },
+			//						diffChart());
 			//
-			//			ValidationResultsProvider.setPerformanceMeasures(new String[] { "AUC", "AUP" });
-			//			read("ecfp4_fold" + chartSize + "orAll", RemoveObsoleteSizes.yes_remove_none,
-			//					getFilter(CFPType.ecfp4, null, FeatureSelection.fold, chartSize),
-			//					getFilter(CFPType.ecfp4, null, FeatureSelection.none, null));
-			//			addRuntimes();
-			//			diffChart();
+			//				ValidationResultsProvider.setPerformanceMeasures(new String[] { "AUC", "AUPRC" });
+			//				read("ecfp4_filt" + chartSize + "orAll", RemoveObsoleteSizes.yes_remove_none,
+			//						getFilter(CFPType.ecfp4, null, FeatureSelection.filt, chartSize),
+			//						getFilter(CFPType.ecfp4, null, FeatureSelection.none, null));
+			//				addRuntimes();
+			//				charts.put(new FeatureSelection[] { FeatureSelection.filt, FeatureSelection.none },
+			//						diffChart());
+			//
+			//				ValidationResultsProvider.setPerformanceMeasures(new String[] { "AUC", "AUPRC" });
+			//				read("ecfp4_fold" + chartSize + "orAll", RemoveObsoleteSizes.yes_remove_none,
+			//						getFilter(CFPType.ecfp4, null, FeatureSelection.fold, chartSize),
+			//						getFilter(CFPType.ecfp4, null, FeatureSelection.none, null));
+			//				addRuntimes();
+			//				charts.put(new FeatureSelection[] { FeatureSelection.fold, FeatureSelection.none },
+			//						diffChart());
+			//
+			//				composeDiffCharts("diffCharts_" + chartSize, charts);
+			//			}
 		}
 
 		{
@@ -265,6 +289,7 @@ public class CreatePaperResults
 
 	static HashMap<String, String> niceValues = new HashMap<>();
 	static HashMap<String, String> niceValuesShort = new HashMap<>();
+
 	static
 	{
 		niceValues.put("hashfoldSize", "Num bits");
@@ -296,6 +321,7 @@ public class CreatePaperResults
 			ORIG_ALGORITHMS_NICE[i] = niceValues.get(ORIG_ALGORITHMS[i]);
 		//ValidationResultsProvider.setPerformanceMeasures(new String[] { "Accuracy" });
 	}
+
 	static String destFolder = "/home/martin/documents/ecfps/latex/results/";
 
 	//	String params = "";
@@ -311,8 +337,8 @@ public class CreatePaperResults
 	public void addRuntimes()
 	{
 		if (ArrayUtil.indexOf(ValidationResultsProvider.performanceMeasures, "Time") == -1)
-			ValidationResultsProvider.setPerformanceMeasures(ArrayUtil.push(
-					ValidationResultsProvider.performanceMeasures, "Time"));
+			ValidationResultsProvider.setPerformanceMeasures(
+					ArrayUtil.push(ValidationResultsProvider.performanceMeasures, "Time"));
 		for (String alg : algResults.keySet())
 		{
 			String algo = null;
@@ -364,7 +390,8 @@ public class CreatePaperResults
 		yes_remove_none, yes_retain_none, no
 	}
 
-	public void read(String algs[], final RemoveObsoleteSizes rem, ResFilter... filter) throws Exception
+	public void read(String algs[], final RemoveObsoleteSizes rem, ResFilter... filter)
+			throws Exception
 	{
 		if (filter != null && filter.length > 0 && filter[0] instanceof CompFilter)
 			throw new IllegalArgumentException();
@@ -385,7 +412,9 @@ public class CreatePaperResults
 			System.out.print("reading " + alg + " .. ");
 
 			File f = new File(ValidationResultsProvider.RESULTS_MERGED_FOLDER + alg + fKey + "."
-					+ ArrayUtil.toString(ValidationResultsProvider.performanceMeasures, "-", "", "", "") + ".res-cache");
+					+ ArrayUtil.toString(ValidationResultsProvider.performanceMeasures, "-", "", "",
+							"")
+					+ ".res-cache");
 			ResultSet res;
 			if (f.exists())
 			{
@@ -435,8 +464,8 @@ public class CreatePaperResults
 				throw new IllegalStateException("nothing left");
 
 			int num = res.getNumResults()
-					/ (DATASETS.length * res.getResultValues("Fold").getNumValues() * res.getResultValues("Run")
-							.getNumValues());
+					/ (DATASETS.length * res.getResultValues("Fold").getNumValues()
+							* res.getResultValues("Run").getNumValues());
 
 			System.out.println("done (" + num + " vals per dataset+fold+run)");
 
@@ -470,8 +499,8 @@ public class CreatePaperResults
 				results.setResultValue(i, "Dataset", d.replaceAll("_", " "));
 			}
 
-			for (String s : new String[] { "Algorithm", "CFPType", "FeatureSelection", "FeatureSelection_1",
-					"FeatureSelection_2" })
+			for (String s : new String[] { "Algorithm", "CFPType", "FeatureSelection",
+					"FeatureSelection_1", "FeatureSelection_2" })
 			{
 				if (results.hasProperty(s))
 				{
@@ -549,15 +578,15 @@ public class CreatePaperResults
 	//		return method.trim();
 	//	}
 
-	public static void merge(final String alg, final String p, final String p2) throws FileNotFoundException,
-			IOException
+	public static void merge(final String alg, final String p, final String p2)
+			throws FileNotFoundException, IOException
 	{
 		//		final boolean orP2 = false;
 
 		//csvToArff("/home/martin/data/arffs/nctrer.csv", "/home/martin/data/arffs/nctrer.arff");
 		String dir = ValidationResultsProvider.RESULTS_FOLDER;
-		String dest = ValidationResultsProvider.RESULTS_MERGED_FOLDER + alg + (p == null ? "" : ("_" + p))
-				+ (p2 == null ? "" : ("_" + p2)) + ".arff";
+		String dest = ValidationResultsProvider.RESULTS_MERGED_FOLDER + alg
+				+ (p == null ? "" : ("_" + p)) + (p2 == null ? "" : ("_" + p2)) + ".arff";
 
 		if (!new File(dest).exists())
 			MergeArffFiles.merge(dir, new FilenameFilter()
@@ -569,9 +598,8 @@ public class CreatePaperResults
 					if (!name.contains(alg))
 						return false;
 
-					if (p != null
-							&& (p.equals(DataLoader.BALANCED_DATASETS) || p.equals("MUV") || p.equals("ChEMBL") || p
-									.equals("DUD")))
+					if (p != null && (p.equals(DataLoader.BALANCED_DATASETS) || p.equals("MUV")
+							|| p.equals("ChEMBL") || p.equals("DUD")))
 					{
 						final Set<String> cat = DataLoader.listCategoryDatasets(p);
 						if (p2 != null)
@@ -706,6 +734,10 @@ public class CreatePaperResults
 
 		{
 			ResultSet r = d.getInfo(datasets);
+			for (int idx = 0; idx < r.getNumResults(); idx++)
+				r.setResultValue(idx, "name",
+						r.getResultValue(idx, "name").toString().replaceAll("_", " "));
+			r.removePropery("source");
 			System.out.println(r.toNiceString());
 			if (write)
 			{
@@ -716,16 +748,16 @@ public class CreatePaperResults
 			System.out.println();
 		}
 
-		{
-			ResultSet r = d.getCategoryInfo(datasets);
-			System.out.println(r.toNiceString());
-			if (write)
-			{
-				String dest = destFolder + "datasets_overview.tex";
-				System.out.println("write table to " + dest);
-				FileUtil.writeStringToFile(dest, r.toLatexTable());
-			}
-		}
+		//		{
+		//			ResultSet r = d.getCategoryInfo(datasets);
+		//			System.out.println(r.toNiceString());
+		//			if (write)
+		//			{
+		//				String dest = destFolder + "datasets_overview.tex";
+		//				System.out.println("write table to " + dest);
+		//				FileUtil.writeStringToFile(dest, r.toLatexTable());
+		//			}
+		//		}
 	}
 
 	/** leaves only a single method per algorithm and dataset in algResutls */
@@ -739,9 +771,9 @@ public class CreatePaperResults
 		{
 			System.out.println(alg);
 
-			File f = new File(ValidationResultsProvider.RESULTS_MERGED_FOLDER + alg + "." + measure + ".d"
-					+ DATASETS.length + ".s" + false + ".m" + ValidationResultsProvider.performanceMeasures.length
-					+ ".best");
+			File f = new File(ValidationResultsProvider.RESULTS_MERGED_FOLDER + alg + "." + measure
+					+ ".d" + DATASETS.length + ".s" + false + ".m"
+					+ ValidationResultsProvider.performanceMeasures.length + ".best");
 			if (f.exists())
 			{
 				//				this.params = measure;
@@ -773,7 +805,9 @@ public class CreatePaperResults
 
 					//System.err.println(test.toNiceString());
 
-					r = r.join(new String[] { "Algorithm", "CFPType", "FeatureSelection", "hashfoldSize", "Dataset" },
+					r = r.join(
+							new String[] { "Algorithm", "CFPType", "FeatureSelection",
+									"hashfoldSize", "Dataset" },
 							new String[] { "Run", "Fold" }, null);
 
 					//					System.err.println();
@@ -798,9 +832,10 @@ public class CreatePaperResults
 							if (result.getValue("Dataset").toString().equals(dataset))
 							{
 								boolean match = true;
-								for (String p : new String[] { "Algorithm", "CFPType", "FeatureSelection",
-										"hashfoldSize" })
-									if (!ObjectUtil.equals(result.getValue(p), finalR.getResultValue(0, p)))
+								for (String p : new String[] { "Algorithm", "CFPType",
+										"FeatureSelection", "hashfoldSize" })
+									if (!ObjectUtil.equals(result.getValue(p),
+											finalR.getResultValue(0, p)))
 										match = false;
 								return match;
 							}
@@ -823,9 +858,9 @@ public class CreatePaperResults
 		}
 
 		System.out.println(algResults
-				.get(ALL_ALGS)
-				.join(new String[] { "Algorithm", "CFPType", "FeatureSelection", "hashfoldSize", "Dataset" },
-						new String[] { "Run", "Fold" }, null).toNiceString());
+				.get(ALL_ALGS).join(new String[] { "Algorithm", "CFPType", "FeatureSelection",
+						"hashfoldSize", "Dataset" }, new String[] { "Run", "Fold" }, null)
+				.toNiceString());
 
 		algResults.get(ALL_ALGS).removePropery("CFPType");
 		algResults.get(ALL_ALGS).removePropery("FeatureSelection");
@@ -849,7 +884,8 @@ public class CreatePaperResults
 	{
 		setName = "best" + measure;
 
-		read("best" + measure, RemoveObsoleteSizes.yes_retain_none, getFilter(null, null, FeatureSelection.filt, null),
+		read("best" + measure, RemoveObsoleteSizes.yes_retain_none,
+				getFilter(null, null, FeatureSelection.filt, null),
 				getFilter(CFPType.ecfp0, null, FeatureSelection.none, null),
 				getFilter(CFPType.fcfp0, null, FeatureSelection.none, null),
 				getFilter(CFPType.ecfp2, null, FeatureSelection.none, null),
@@ -878,14 +914,15 @@ public class CreatePaperResults
 				continue;
 
 			for (int i = 0; i < r.getNumResults(); i++)
-				r.setResultValue(i, "Method", alg(r, i) + "#" + type(r, i) + "#" + feat(r, i) + "#" + size(r, i));
-			final ResultSet test = r.pairedTTest_All("Method", ArrayUtil.toList(new String[] { "Run", "Fold" }),
-					measure, SIG_LEVEL_RELAXED, TEST_CORRECTION_RELAXED);
+				r.setResultValue(i, "Method",
+						alg(r, i) + "#" + type(r, i) + "#" + feat(r, i) + "#" + size(r, i));
+			final ResultSet test = r.pairedTTest_All("Method",
+					ArrayUtil.toList(new String[] { "Run", "Fold" }), measure, SIG_LEVEL_RELAXED,
+					TEST_CORRECTION_RELAXED);
 			//			System.err.println(test.toNiceString());
 			//			System.err.println();
-			r = r.join(
-					new String[] { "Algorithm", "CFPType", "FeatureSelection", "hashfoldSize", "Dataset", "Method" },
-					new String[] { "Run", "Fold" }, null);
+			r = r.join(new String[] { "Algorithm", "CFPType", "FeatureSelection", "hashfoldSize",
+					"Dataset", "Method" }, new String[] { "Run", "Fold" }, null);
 
 			//			System.err.println(r.toNiceString());
 
@@ -894,14 +931,15 @@ public class CreatePaperResults
 				@Override
 				public boolean accept(Result result)
 				{
-					Boolean w = ResultSet.isWinOrLoss(test, "Method", result.getValueToString("Method"), measure);
+					Boolean w = ResultSet.isWinOrLoss(test, "Method",
+							result.getValueToString("Method"), measure);
 					return (w != null && w);
 				}
 			});
 			if (winners.getNumResults() > 0)
 			{
-				System.err.println("skip " + (r.getNumResults() - winners.getNumResults()) + " loosers, left: "
-						+ winners.getNumResults());
+				System.err.println("skip " + (r.getNumResults() - winners.getNumResults())
+						+ " loosers, left: " + winners.getNumResults());
 				r = winners;
 			}
 			else
@@ -934,7 +972,8 @@ public class CreatePaperResults
 					if (result.getValue("Dataset").toString().equals(dataset))
 					{
 						boolean match = true;
-						for (String p : new String[] { "Algorithm", "CFPType", "FeatureSelection", "hashfoldSize" })
+						for (String p : new String[] { "Algorithm", "CFPType", "FeatureSelection",
+								"hashfoldSize" })
 							if (!ObjectUtil.equals(result.getValue(p), finalR.getResultValue(0, p)))
 								match = false;
 						return match;
@@ -945,9 +984,11 @@ public class CreatePaperResults
 			});
 		}
 
-		System.out.println(all.join(
-				new String[] { "Algorithm", "CFPType", "FeatureSelection", "hashfoldSize", "Dataset" },
-				new String[] { "Run", "Fold" }, null).toNiceString());
+		System.out
+				.println(all
+						.join(new String[] { "Algorithm", "CFPType", "FeatureSelection",
+								"hashfoldSize", "Dataset" }, new String[] { "Run", "Fold" }, null)
+						.toNiceString());
 		System.out.println("max perf lost: " + maxDiff);
 		System.out.println("max features: " + maxFeatures);
 
@@ -1254,12 +1295,13 @@ public class CreatePaperResults
 
 			//			this.params = params;
 			//			setParamsStr();
-			String cache = ValidationResultsProvider.RESULTS_MERGED_FOLDER + alg + filter.getKey() + ".joined";
+			String cache = ValidationResultsProvider.RESULTS_MERGED_FOLDER + alg + filter.getKey()
+					+ ".joined";
 			if (!new File(cache).exists())
 			{
 				read(new String[] { alg }, RemoveObsoleteSizes.yes_retain_none, filter);
-				r = algResults.get(alg)
-						.join(new String[] { "Method", "Dataset" }, new String[] { "Run", "Fold" }, null);
+				r = algResults.get(alg).join(new String[] { "Method", "Dataset" },
+						new String[] { "Run", "Fold" }, null);
 				ResultSetIO.printToTxtFile(new File(cache), r, true);
 			}
 			else
@@ -1311,9 +1353,11 @@ public class CreatePaperResults
 					int iFilt = getResultIdx(r, t, size, FeatureSelection.filt);
 					if (iFilt == -1)
 						continue;
-					Double rFilt = (Double) r.getResultValue(iFilt, measure + ResultSet.RANK_SUFFIX);
-					Double rFold = (Double) r.getResultValue(getResultIdx(r, t, size, FeatureSelection.fold), measure
-							+ ResultSet.RANK_SUFFIX);
+					Double rFilt = (Double) r.getResultValue(iFilt,
+							measure + ResultSet.RANK_SUFFIX);
+					Double rFold = (Double) r.getResultValue(
+							getResultIdx(r, t, size, FeatureSelection.fold),
+							measure + ResultSet.RANK_SUFFIX);
 					//					System.out.println(rFilt + " vs " + rFold);
 					if (rFilt < rFold)
 						winFold += 1;
@@ -1321,8 +1365,9 @@ public class CreatePaperResults
 						System.out.println("fold loss: " + t + " " + size);
 					diffFold += rFold - rFilt;
 
-					Double rAll = (Double) r.getResultValue(getResultIdx(r, t, null, FeatureSelection.none), measure
-							+ ResultSet.RANK_SUFFIX);
+					Double rAll = (Double) r.getResultValue(
+							getResultIdx(r, t, null, FeatureSelection.none),
+							measure + ResultSet.RANK_SUFFIX);
 					if (rFilt < rAll)
 						winAll += 1;
 					diffAll += rAll - rFilt;
@@ -1330,8 +1375,10 @@ public class CreatePaperResults
 					count += 1;
 				}
 			}
-			System.out.println("filt vs fold - < " + winFold + "/" + count + " - diff " + (diffFold / (double) count));
-			System.out.println("filt vs all - < " + winAll + "/" + count + " - diff " + (diffAll / (double) count));
+			System.out.println("filt vs fold - < " + winFold + "/" + count + " - diff "
+					+ (diffFold / (double) count));
+			System.out.println("filt vs all - < " + winAll + "/" + count + " - diff "
+					+ (diffAll / (double) count));
 
 			int sumBest = 0;
 			for (int i = 0; i < r.getNumResults(); i++)
@@ -1341,22 +1388,24 @@ public class CreatePaperResults
 				//				else if (!combined.getResultValue(i, "Method").equals(r.getResultValue(i, "Method")))
 				//					throw new IllegalStateException();
 				combined.setResultValue(i, alg + " CFPType", type(r, i));
-				combined.setResultValue(i, alg + " FeatureSelection", feat(r, i).toNiceShortString());
+				combined.setResultValue(i, alg + " FeatureSelection",
+						feat(r, i).toNiceShortString());
 				combined.setResultValue(i, alg + " hashfoldSize", size(r, i));
 
 				//				combined.setResultValue(i, "Coll.", "to be overwritten");
 				//				combined.setResultValue(i, alg + " Top3", "");
-				combined.setResultValue(i, alg + " " + measure + " Rank",
-						StringUtil.formatDouble(((Double) r.getResultValue(i, measure + ResultSet.RANK_SUFFIX)), 1));
-				double best = ((Number) r.getResultValue(i, measure + ResultSet.RANK_BEST_SUFFIX)).doubleValue()
-						* numDatasets;
+				combined.setResultValue(i, alg + " " + measure + " Rank", StringUtil.formatDouble(
+						((Double) r.getResultValue(i, measure + ResultSet.RANK_SUFFIX)), 1));
+				double best = ((Number) r.getResultValue(i, measure + ResultSet.RANK_BEST_SUFFIX))
+						.doubleValue() * numDatasets;
 				sumBest += best;
 				combined.setResultValue(i, alg + " " + measure + " Best", (int) best);
 				//				combined.setNicePropery(alg + " Top3", "Top3");
 				combined.setNicePropery(alg + " " + measure + " Rank", "Rank");
 
 				combined.setNicePropery(alg + " CFPType", niceValuesShort.get("CFPType"));
-				combined.setNicePropery(alg + " FeatureSelection", niceValuesShort.get("FeatureSelection"));
+				combined.setNicePropery(alg + " FeatureSelection",
+						niceValuesShort.get("FeatureSelection"));
 				combined.setNicePropery(alg + " hashfoldSize", niceValuesShort.get("hashfoldSize"));
 				combined.setNicePropery(alg + " " + measure + " Best", "Best");
 			}
@@ -1382,7 +1431,8 @@ public class CreatePaperResults
 			{
 				if (!preProp.isEmpty())
 					preProp += "& ";
-				preProp += "\\multicolumn{3}{c}{" + niceValues.get(alg) + "} & \\multicolumn{2}{c}{" + measure + "} ";
+				preProp += "\\multicolumn{3}{c}{" + niceValues.get(alg) + "} & \\multicolumn{2}{c}{"
+						+ measure + "} ";
 				Integer h[] = new Integer[] { hlines.length > 0 ? 2 : 0, 0, 0, 1, 0 };
 				if (hlines.length == 0)
 					hlines = h;
@@ -1576,7 +1626,8 @@ public class CreatePaperResults
 
 		for (final String type : new String[] { "ecfp", "fcfp" })
 		{
-			ResultSet res = ResultSetIO.parseFromTxtFile(new File("data_collisions/collisions_" + type + ".result"));
+			ResultSet res = ResultSetIO
+					.parseFromTxtFile(new File("data_collisions/collisions_" + type + ".result"));
 			if (!noOutput)
 				System.out.println(res.toNiceString());
 			sortDatasets(res);
@@ -1623,7 +1674,8 @@ public class CreatePaperResults
 					{
 						String dest = destFolder + "collisions_" + type + typeSize + ".tex";
 						System.out.println("write table to " + dest);
-						FileUtil.writeStringToFile(dest, r.toLatexTable(null, (Integer[]) null, datasetPreProp));
+						FileUtil.writeStringToFile(dest,
+								r.toLatexTable(null, (Integer[]) null, datasetPreProp));
 					}
 				}
 			}
@@ -1672,7 +1724,8 @@ public class CreatePaperResults
 				{
 					String dest = destFolder + "collisions_" + type + ".tex";
 					System.out.println("write table to " + dest);
-					FileUtil.writeStringToFile(dest, joined.toLatexTable(null, (Integer[]) null, preProp));
+					FileUtil.writeStringToFile(dest,
+							joined.toLatexTable(null, (Integer[]) null, preProp));
 				}
 			}
 		}
@@ -1726,7 +1779,8 @@ public class CreatePaperResults
 			ResultSet res = algResults.get(alg).copy();
 			checkUniqueProps(res, property);
 
-			ResultSet r = res.join(new String[] { property, "Dataset" }, new String[] { "Run", "Fold" }, null);
+			ResultSet r = res.join(new String[] { property, "Dataset" },
+					new String[] { "Run", "Fold" }, null);
 			sortDatasets(r);
 			//			if (alg.equals(ALL_ALGS))
 			//			{
@@ -1753,11 +1807,12 @@ public class CreatePaperResults
 			renameResultValues(r);
 
 			//			System.out.println(r.toNiceString());
-			ResultSetLinePlot plot = new ResultSetLinePlot(r, ValidationResultsProvider.performanceMeasures, property,
-					"Dataset");
+			ResultSetLinePlot plot = new ResultSetLinePlot(r,
+					ValidationResultsProvider.performanceMeasures, property, "Dataset");
 			plot.setTitle(null);
 			plot.setXAxisLabel(null);
 			plot.setRotateXLabels(ResultSetLinePlot.XLabelsRotation.vertical);
+			plot.setYAxisLabelSuffix(" (" + niceValuesShort.get(alg) + ")");
 			if (ValidationResultsProvider.performanceMeasures.length > 1)
 			{
 				for (String p : ValidationResultsProvider.performanceMeasures)
@@ -1766,11 +1821,11 @@ public class CreatePaperResults
 						plot.setYAxisRange(p, 0.5, 1.0);
 						plot.setYAxisTickUnits(p, 0.125);
 					}
-					else if (p.equals("FMeasure") || p.equals("Sensitivity") || p.equals("Selectivity")
-							|| p.equals("AUP"))
+					else if (p.equals("FMeasure") || p.equals("Sensitivity")
+							|| p.equals("Selectivity") || p.equals("AUPRC"))
 					{
 						plot.setYAxisRange(p, 0.0, 1.0);
-						plot.setYAxisTickUnits(p, 0.125);
+						plot.setYAxisTickUnits(p, 0.2);
 					}
 					else if (p.equals("TN"))
 					{
@@ -1785,10 +1840,10 @@ public class CreatePaperResults
 					&& ValidationResultsProvider.performanceMeasures[0].equals("AUC"))
 				plot.setYAxisRange(0.5, 1.0);
 			else if (ValidationResultsProvider.performanceMeasures.length == 1
-					&& ValidationResultsProvider.performanceMeasures[0].equals("AUP"))
+					&& ValidationResultsProvider.performanceMeasures[0].equals("AUPRC"))
 			{
 				plot.setYAxisRange(0.0, 1.0);
-				plot.setYAxisTickUnits("AUP", 0.125);
+				plot.setYAxisTickUnits("AUPRC", 0.2);
 			}
 
 			for (String p : ValidationResultsProvider.performanceMeasures)
@@ -1841,15 +1896,32 @@ public class CreatePaperResults
 			//
 			//			}
 
+			int height;
+			int chartH = 145;
+			int legendH = 135;
+
+			if (ValidationResultsProvider.performanceMeasures.length == 1)
+			{
+				plot.setShowLegend(false);
+				plot.setShowDomainAxis(false);
+				height = chartH;
+			}
+			else
+			{
+				height = legendH + ValidationResultsProvider.performanceMeasures.length * chartH;
+			}
+
 			ChartPanel c = plot.getChartPanel();
 			c.setMaximumDrawWidth(10000);
 			c.setMaximumDrawHeight(5000);
 			//c.setPreferredSize(new Dimension(800, 600));
 
-			String name = "Chart_" + alg + "_" + setName + "_m" + ValidationResultsProvider.performanceMeasures.length;
-			int height = 205 + ValidationResultsProvider.performanceMeasures.length * 100;
+			String name = "Chart_" + alg + "_" + setName + "_m"
+					+ ValidationResultsProvider.performanceMeasures.length;
+
 			if (showCharts)
-				SwingUtil.showInFrame(c, destFolder + name, false, new Dimension(1000, 50 + height));
+				SwingUtil.showInFrame(c, destFolder + name, false,
+						new Dimension(1000, 50 + height));
 
 			if (write)
 			{
@@ -1859,14 +1931,15 @@ public class CreatePaperResults
 		}
 	}
 
-	public void diffChart()
+	public Map<String, ChartPanel> diffChart()
 	{
-
+		Map<String, ChartPanel> charts = new LinkedHashMap<>();
 		for (String measure : ValidationResultsProvider.performanceMeasures)
 		{
 			//			checkUniqueProps(algResults.get(ALL_ALGS), "FeatureSelection");
 
-			ResultSet r = algResults.get(ALL_ALGS).join(new String[] { "FeatureSelection", "Dataset", "Algorithm" },
+			ResultSet r = algResults.get(ALL_ALGS).join(
+					new String[] { "FeatureSelection", "Dataset", "Algorithm" },
 					new String[] { "Run", "Fold" }, null);
 
 			sortDatasets(r);
@@ -1890,18 +1963,20 @@ public class CreatePaperResults
 
 			renameResultValues(r, true);
 
-			r = r.diff("FeatureSelection", ArrayUtil.toList(new String[] { "Algorithm", "Dataset" }), diff, ratio);
+			r = r.diff("FeatureSelection",
+					ArrayUtil.toList(new String[] { "Algorithm", "Dataset" }), diff, ratio);
 			r.sortResults("Algorithm", getAlgComparator());
 			System.out.println(r.toNiceString());
 
-			String title = measure;
-			String label = r.getUniqueValue("FeatureSelection").toString();
+			String title = null; //measure;
+			String label = null;//r.getUniqueValue("FeatureSelection").toString();
 			String series1 = "FeatureSelection";
 			String series2 = "Algorithm";
 			String category = measure;
 			//			List<String> categories = ArrayUtil.toList(new String[] { measure });
 
-			ResultSetBoxPlot plot = new ResultSetBoxPlot(r, title, label, series1, series2, category);
+			ResultSetBoxPlot plot = new ResultSetBoxPlot(r, title, label, series1, series2,
+					category);
 
 			plot.setHideMean(true);
 			plot.setRotateXLabels(false);
@@ -1924,8 +1999,11 @@ public class CreatePaperResults
 			c.setMaximumDrawHeight(5000);
 			c.setMinimumDrawWidth(200);
 			c.setMinimumDrawHeight(200);
-			Dimension size = new Dimension(250, 250);
+			Dimension size = new Dimension(220, 220);
 			c.setPreferredSize(size);
+			c.setOpaque(false);
+
+			charts.put(measure + " (" + (measure.equals("Time") ? "factor" : "\u0394") + ")", c);
 
 			String name = "Chart_Diff_" + measure + "_" + setName + "_m"
 					+ ValidationResultsProvider.performanceMeasures.length;
@@ -1937,6 +2015,54 @@ public class CreatePaperResults
 				plot.boxPlotToSVGFile(destFolder + name + ".svg", size);
 				toPDF(destFolder + name);
 			}
+		}
+		return charts;
+	}
+
+	public void composeDiffCharts(String name,
+			Map<FeatureSelection[], Map<String, ChartPanel>> charts)
+	{
+		DefaultFormBuilder builder = new DefaultFormBuilder(
+				new FormLayout("p,3dlu,p,3dlu,p,3dlu,p"));
+		builder.append("");
+		Font f = null;
+
+		for (FeatureSelection[] vs : charts.keySet())
+		{
+			Map<String, ChartPanel> map = charts.get(vs);
+			if (f == null)
+			{
+				JFreeChart p = map.values().iterator().next().getChart();
+				p.setTitle("bla");
+				f = p.getTitle().getFont().deriveFont(p.getTitle().getFont().getSize() - 4.0f);
+				p.setTitle("");
+				for (String s : map.keySet())
+				{
+					JLabel l = new JLabel(s);
+					l.setHorizontalAlignment(SwingConstants.CENTER);
+					l.setFont(f);
+					builder.append(l);
+				}
+				builder.nextLine();
+			}
+
+			JLabel l = new JLabel("<html><div style='text-align: center;'>" + vs[0].toNiceString()
+					+ "<br>vs<br>" + vs[1].toNiceString() + "</div></html>");
+			l.setHorizontalAlignment(SwingConstants.CENTER);
+			l.setFont(f);
+			builder.append(l);
+			for (ChartPanel c : map.values())
+				builder.append(c);
+			builder.nextLine();
+		}
+		builder.getPanel().setBackground(Color.WHITE);
+		if (showCharts)
+			SwingUtil.showInFrame(builder.getPanel());
+		if (write)
+		{
+			System.err.println("write to " + destFolder + name + ".png");
+			SwingUtil.toFile(destFolder + name + ".png", builder.getPanel(),
+					builder.getPanel().getPreferredSize());
 		}
 	}
 
@@ -1961,11 +2087,13 @@ public class CreatePaperResults
 				ratio.add("Time");
 				diff.remove("Time");
 			}
-			r = r.diff("FeatureSelection", ArrayUtil.toList(new String[] { "Dataset" }), diff, ratio);
+			r = r.diff("FeatureSelection", ArrayUtil.toList(new String[] { "Dataset" }), diff,
+					ratio);
 			System.out.println(r.toNiceString());
 
-			ResultSetBoxPlot plot = new ResultSetBoxPlot(r, niceValues.get(alg), r.getUniqueValue("FeatureSelection")
-					.toString(), "FeatureSelection", ArrayUtil.toList(ValidationResultsProvider.performanceMeasures));
+			ResultSetBoxPlot plot = new ResultSetBoxPlot(r, niceValues.get(alg),
+					r.getUniqueValue("FeatureSelection").toString(), "FeatureSelection",
+					ArrayUtil.toList(ValidationResultsProvider.performanceMeasures));
 			plot.setHideMean(true);
 			plot.setRotateXLabels(false);
 			plot.printNumResultsPerPlot(false);
@@ -2256,7 +2384,8 @@ public class CreatePaperResults
 				{
 					int d1 = ((CFPType) o1).getDiameter();
 					int d2 = ((CFPType) o2).getDiameter();
-					return new Integer(ArrayUtil.indexOf(sort, d1)).compareTo(new Integer(ArrayUtil.indexOf(sort, d2)));
+					return new Integer(ArrayUtil.indexOf(sort, d1))
+							.compareTo(new Integer(ArrayUtil.indexOf(sort, d2)));
 				}
 			});
 		}
@@ -2289,7 +2418,7 @@ public class CreatePaperResults
 				//				System.out.println(algResults.get(alg).join(equalProps(property), null, null).toNiceString());
 
 				ResultSet set = r.pairedTTestWinLoss(property, new String[] { "Run", "Fold" },
-				//ArrayUtil.toList(new String[] { "Run", "Fold", propertys[1] }),
+						//ArrayUtil.toList(new String[] { "Run", "Fold", propertys[1] }),
 						measure, SIG_LEVEL, TEST_CORRECTION, seriesProps(property), true);
 				//			set.sortResults("Method_1");
 
@@ -2313,7 +2442,8 @@ public class CreatePaperResults
 						if (t1.getDiameter() != 4)
 							continue;
 					}
-					String pValue = niceValuesShort.get(v1.toString()) + " vs " + niceValuesShort.get(v2.toString());
+					String pValue = niceValuesShort.get(v1.toString()) + " vs "
+							+ niceValuesShort.get(v2.toString());
 					if (table.getNumResults() - 1 < resCount)
 					{
 						table.addResult();
@@ -2337,7 +2467,8 @@ public class CreatePaperResults
 				leftHline = ArrayUtil.push(leftHline, false);
 		}
 		System.out.println();
-		String perf = ArrayUtil.toString(ValidationResultsProvider.performanceMeasures, "-", "", "", "");
+		String perf = ArrayUtil.toString(ValidationResultsProvider.performanceMeasures, "-", "", "",
+				"");
 		System.out.println(name + " " + setName + " " + perf);
 		for (String p : niceValues.keySet())
 			table.setNicePropery(p, niceValues.get(p));
@@ -2400,12 +2531,14 @@ public class CreatePaperResults
 					continue;
 				read((filter ? "filt" : "fold") + size, RemoveObsoleteSizes.yes_remove_none,
 						getFilter(null, null, sel, size));
-				results.put((onlyDefaultSize ? (sel + "") : (size + "")),
-						winLoss(measure, WinLossOption.compareSameDiameter, "CFPType", "Algorithm"));
+				results.put((onlyDefaultSize ? (sel + "") : (size + "")), winLoss(measure,
+						WinLossOption.compareSameDiameter, "CFPType", "Algorithm"));
 			}
-			String suffix = "_" + measure + "_" + sel + (onlyDefaultSize ? ("_" + defaultSize) : "");
+			String suffix = "_" + measure + "_" + sel
+					+ (onlyDefaultSize ? ("_" + defaultSize) : "");
 			plotWinLoss("WinLoss_Types" + suffix, measure, "CFPType", "Algorithm", subCat, results,
-					(onlyDefaultSize ? "" : "(" + sel.toNiceString() + ") ") + "Fingerprint type", !onlyDefaultSize);
+					(onlyDefaultSize ? "" : "(" + sel.toNiceString() + ") ") + "Fingerprint type",
+					!onlyDefaultSize);
 		}
 	}
 
@@ -2425,21 +2558,24 @@ public class CreatePaperResults
 		for (String measure : ValidationResultsProvider.performanceMeasures)
 		{
 			HashMap<String, ResultSet> results = new LinkedHashMap<>();
-			read("ecfpAll", RemoveObsoleteSizes.no, getFilter(null, true, FeatureSelection.none, null));
+			read("ecfpAll", RemoveObsoleteSizes.no,
+					getFilter(null, true, FeatureSelection.none, null));
 			results.put((onlyDefaultSize ? (FeatureSelection.none + "") : "all"),
 					winLoss(measure, WinLossOption.compareToDiameter4, "CFPType", "Algorithm"));
 			for (Integer size : SIZES)
 			{
 				if (onlyDefaultSize && size != defaultSize)
 					continue;
-				read("ecfp" + (filter ? "Filt" : "Fold") + size, RemoveObsoleteSizes.yes_remove_none,
-						getFilter(null, true, sel, size));
+				read("ecfp" + (filter ? "Filt" : "Fold") + size,
+						RemoveObsoleteSizes.yes_remove_none, getFilter(null, true, sel, size));
 				results.put((onlyDefaultSize ? (sel + "") : (size + "")),
 						winLoss(measure, WinLossOption.compareToDiameter4, "CFPType", "Algorithm"));
 			}
-			String suffix = "_" + measure + "_" + sel + (onlyDefaultSize ? ("_" + defaultSize) : "");
-			plotWinLoss("WinLoss_Diameters" + suffix, measure, "CFPType", "Algorithm", subCat, results,
-					(onlyDefaultSize ? "" : "(" + sel.toNiceString() + ") ") + "Diameter", !onlyDefaultSize);
+			String suffix = "_" + measure + "_" + sel
+					+ (onlyDefaultSize ? ("_" + defaultSize) : "");
+			plotWinLoss("WinLoss_Diameters" + suffix, measure, "CFPType", "Algorithm", subCat,
+					results, (onlyDefaultSize ? "" : "(" + sel.toNiceString() + ") ") + "Diameter",
+					!onlyDefaultSize);
 		}
 	}
 
@@ -2450,17 +2586,19 @@ public class CreatePaperResults
 			HashMap<String, ResultSet> results = new LinkedHashMap<>();
 			for (Integer size : SIZES)
 			{
-				read("ecfp4_" + size + "orAll", RemoveObsoleteSizes.no, getFilter(CFPType.ecfp4, null, null, size),
+				read("ecfp4_" + size + "orAll", RemoveObsoleteSizes.no,
+						getFilter(CFPType.ecfp4, null, null, size),
 						getFilter(CFPType.ecfp4, null, FeatureSelection.none, null));
-				results.put(size + "", winLoss(measure, WinLossOption.compareAll, "FeatureSelection", "Algorithm"));
+				results.put(size + "", winLoss(measure, WinLossOption.compareAll,
+						"FeatureSelection", "Algorithm"));
 			}
-			plotWinLoss("WinLoss_FiltVsFoldVsAll_" + measure, measure, "FeatureSelection", "Algorithm", "hashfoldSize",
-					results, niceValues.get("FeatureSelection"), true);
+			plotWinLoss("WinLoss_FiltVsFoldVsAll_" + measure, measure, "FeatureSelection",
+					"Algorithm", "hashfoldSize", results, niceValues.get("FeatureSelection"), true);
 		}
 	}
 
-	private void plotWinLoss(String name, String measure, String winLossCmp, String cat1, String cat2,
-			HashMap<String, ResultSet> results, String title, boolean fullPage)
+	private void plotWinLoss(String name, String measure, String winLossCmp, String cat1,
+			String cat2, HashMap<String, ResultSet> results, String title, boolean fullPage)
 	{
 		ResultSet plot = null;
 		for (String k : results.keySet())
@@ -2480,7 +2618,8 @@ public class CreatePaperResults
 		//		System.exit(0);
 		WinLossBarChart chart = new WinLossBarChart(plot, winLossCmp, measure, cat1, cat2);
 
-		chart.setTitle("" + title + " comparison (" + (fullPage ? "based on " : "") + "" + measure + ")");
+		chart.setTitle(
+				"" + title + " comparison (" + (fullPage ? "based on " : "") + "" + measure + ")");
 		Dimension dim = new Dimension(fullPage ? 800 : 400, WinLossBarChart.SPACE_FOR_TITLE
 				+ WinLossBarChart.SPACE_FOR_LEGEND_AND_X_AXIS + 150 * chart.getNumSubPlots());
 		if (showCharts)
@@ -2493,7 +2632,8 @@ public class CreatePaperResults
 		}
 	}
 
-	public ResultSet winLoss(String measure, WinLossOption opt, final String property, String splitProp)
+	public ResultSet winLoss(String measure, WinLossOption opt, final String property,
+			String splitProp)
 	{
 		ResultSet all = algResults.get(ALL_ALGS);
 		all.removePropery("hashfoldSize");
@@ -2510,7 +2650,8 @@ public class CreatePaperResults
 				{
 					int d1 = ((CFPType) o1).getDiameter();
 					int d2 = ((CFPType) o2).getDiameter();
-					return new Integer(ArrayUtil.indexOf(sort, d1)).compareTo(new Integer(ArrayUtil.indexOf(sort, d2)));
+					return new Integer(ArrayUtil.indexOf(sort, d1))
+							.compareTo(new Integer(ArrayUtil.indexOf(sort, d2)));
 				}
 			});
 		}
@@ -2524,8 +2665,8 @@ public class CreatePaperResults
 			if (splitValue1 != null)
 				System.out.println(" " + splitValue1 + " #results:" + r.getNumResults());
 
-			ResultSet set = r.pairedTTestWinLoss(property, new String[] { "Run", "Fold" }, measure, SIG_LEVEL,
-					TEST_CORRECTION, seriesProps(property), true);
+			ResultSet set = r.pairedTTestWinLoss(property, new String[] { "Run", "Fold" }, measure,
+					SIG_LEVEL, TEST_CORRECTION, seriesProps(property), true);
 			System.out.println("win loss result: #" + set.getNumResults());
 
 			if (opt == WinLossOption.compareToDiameter4)
@@ -2546,8 +2687,9 @@ public class CreatePaperResults
 					@Override
 					public boolean accept(Result result)
 					{
-						return ((CFPType) result.getValue(property + "_1")).getDiameter() == ((CFPType) result
-								.getValue(property + "_2")).getDiameter();
+						return ((CFPType) result.getValue(property + "_1"))
+								.getDiameter() == ((CFPType) result.getValue(property + "_2"))
+										.getDiameter();
 					}
 				});
 			}
@@ -2831,13 +2973,15 @@ public class CreatePaperResults
 			//r.sortResults("Method");
 			//System.out.println(r.toNiceString());
 
-			List<String> datasets = ListUtil.cast(String.class, r.getResultValues("Dataset").values());
+			List<String> datasets = ListUtil.cast(String.class,
+					r.getResultValues("Dataset").values());
 			Collections.sort(datasets, DataLoader.CFPDataComparator);
 
 			for (String m : ValidationResultsProvider.performanceMeasures)
 			{
-				ResultSet test = algResults.get(alg).pairedTTest("Method", new String[] { "Run", "Fold" }, m,
-						SIG_LEVEL, TEST_CORRECTION, new String[] { "Dataset" });
+				ResultSet test = algResults.get(alg).pairedTTest("Method",
+						new String[] { "Run", "Fold" }, m, SIG_LEVEL, TEST_CORRECTION,
+						new String[] { "Dataset" });
 
 				System.out.println(m);
 
@@ -2873,13 +3017,14 @@ public class CreatePaperResults
 									hlineLeadingColumn.add(k2.equals(paramKeys2[0]));
 								}
 
-								String value = Math.round((Double) val * 100) + "+-" + Math.round((Double) var * 100);
+								String value = Math.round((Double) val * 100) + "+-"
+										+ Math.round((Double) var * 100);
 
 								if (!k2.equals(paramKeys2[0]))
 								{
 									String method2 = method.replaceAll(k2, paramKeys2[0]);
-									Boolean win = ResultSet.isWinOrLoss(test, "Method", method, method2, m, "Dataset",
-											dataset);
+									Boolean win = ResultSet.isWinOrLoss(test, "Method", method,
+											method2, m, "Dataset", dataset);
 									if (win != null)
 									{
 										if (win)
@@ -2890,7 +3035,8 @@ public class CreatePaperResults
 								}
 
 								t2.setResultValue(datasets.indexOf(dataset), p, value);
-								t2.setNicePropery(p, niceValues.containsKey(k2) ? niceValues.get(k2) : k2);
+								t2.setNicePropery(p,
+										niceValues.containsKey(k2) ? niceValues.get(k2) : k2);
 							}
 						}
 					}
@@ -2901,7 +3047,8 @@ public class CreatePaperResults
 
 				if (write)
 				{
-					String dest = destFolder + "Table_" + name + "_" + alg + setName + "_" + m + ".tex";
+					String dest = destFolder + "Table_" + name + "_" + alg + setName + "_" + m
+							+ ".tex";
 					System.out.println("write table to " + dest);
 					FileUtil.writeStringToFile(dest,
 							t2.toLatexTable(null, ArrayUtil.toArray(hlineLeadingColumn), preProp));
@@ -3076,8 +3223,8 @@ public class CreatePaperResults
 
 	private static void toPDF(String svgFileWithoutExtension)
 	{
-		new ExternalTool(null).run("to-pdf", ("rsvg-convert -f pdf -o " + svgFileWithoutExtension + ".pdf "
-				+ svgFileWithoutExtension + ".svg").split(" "));
+		new ExternalTool(null).run("to-pdf", ("rsvg-convert -f pdf -o " + svgFileWithoutExtension
+				+ ".pdf " + svgFileWithoutExtension + ".svg").split(" "));
 	}
 
 	public static void main(String[] args) throws Exception
@@ -3156,7 +3303,8 @@ public class CreatePaperResults
 		}
 	}
 
-	public static ResFilter getFilter(final CFPType t, final Boolean isECFP, final FeatureSelection f, final Integer s)
+	public static ResFilter getFilter(final CFPType t, final Boolean isECFP,
+			final FeatureSelection f, final Integer s)
 	{
 		return new ResFilter()
 		{
@@ -3225,7 +3373,8 @@ public class CreatePaperResults
 	public static int getResultIdx(ResultSet set, CFPType type, Integer size, FeatureSelection feat)
 	{
 		for (int i = 0; i < set.getNumResults(); i++)
-			if (type(set, i) == type && feat(set, i) == feat && ObjectUtil.equals(size(set, i), size))
+			if (type(set, i) == type && feat(set, i) == feat
+					&& ObjectUtil.equals(size(set, i), size))
 				return i;
 		return -1;
 	}
@@ -3275,8 +3424,8 @@ public class CreatePaperResults
 
 	public static String[] seriesProps(String notUniqProp)
 	{
-		List<String> l = ArrayUtil.toList(new String[] { "Dataset", "Algorithm", "CFPType", "FeatureSelection",
-				"hashfoldSize" });
+		List<String> l = ArrayUtil.toList(new String[] { "Dataset", "Algorithm", "CFPType",
+				"FeatureSelection", "hashfoldSize" });
 		l.remove(notUniqProp);
 		return ArrayUtil.toArray(l);
 	}

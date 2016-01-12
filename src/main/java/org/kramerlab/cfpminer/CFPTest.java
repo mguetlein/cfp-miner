@@ -62,8 +62,8 @@ public class CFPTest
 		for (int i : new int[] { 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192 })
 		{
 			cfps.setHashfoldsize(i);
-			CFPValidate.validate(datasetName, run, "/dev/null", new String[] { classifier }, endpointValues,
-					new CFPMiner[] { cfps });
+			CFPValidate.validate(datasetName, run, "/dev/null", new String[] { classifier },
+					endpointValues, new CFPMiner[] { cfps });
 		}
 
 		System.exit(0);
@@ -97,8 +97,9 @@ public class CFPTest
 				//				{
 				//					AttributeCrossvalidator.FORCE_SPARSE = b;
 				cfps.setHashfoldsize(i);
-				CFPValidate.validate(datasetName, run, "/tmp/" + classifier + "_" + b + "_mult.arff",
-						new String[] { classifier }, endpointValues, new CFPMiner[] { cfps });
+				CFPValidate.validate(datasetName, run,
+						"/tmp/" + classifier + "_" + b + "_mult.arff", new String[] { classifier },
+						endpointValues, new CFPMiner[] { cfps });
 				//				}
 			}
 		}
@@ -106,15 +107,15 @@ public class CFPTest
 		System.exit(0);
 	}
 
-	private static String getRuntimeKey(String datasetName, CFPType type, FeatureSelection featureSelection,
-			int hashfoldsize, String classifier, boolean build)
+	private static String getRuntimeKey(String datasetName, CFPType type,
+			FeatureSelection featureSelection, int hashfoldsize, String classifier, boolean build)
 	{
-		return datasetName + "#" + type.toString() + "#" + featureSelection.toString() + "#" + hashfoldsize + "#"
-				+ classifier + "#" + build;
+		return datasetName + "#" + type.toString() + "#" + featureSelection.toString() + "#"
+				+ hashfoldsize + "#" + classifier + "#" + build;
 	}
 
 	private static HashMap<String, Double> runtimes = new HashMap<String, Double>();
-	private static String runtimesFile = "/home/martin/tmp/runtimes";
+	private static String runtimesFile = "/home/martin/workspace/CFPMiner/runtimes";
 
 	static
 	{
@@ -136,18 +137,19 @@ public class CFPTest
 		}
 	}
 
-	public static double getRuntime(String datasetName, CFPType type, FeatureSelection featureSelection,
-			int hashfoldsize, String classifier, boolean build)
+	public static double getRuntime(String datasetName, CFPType type,
+			FeatureSelection featureSelection, int hashfoldsize, String classifier, boolean build)
 	{
-		String k = getRuntimeKey(datasetName, type, featureSelection, hashfoldsize, classifier, build);
+		String k = getRuntimeKey(datasetName, type, featureSelection, hashfoldsize, classifier,
+				build);
 		if (runtimes.containsKey(k))
 			return runtimes.get(k);
 		else
 			return 0;
 	}
 
-	private static void estimateRuntime(String datasetName, CFPType type, FeatureSelection featureSelection,
-			int hashfoldsize, String classifier) throws Exception
+	private static void estimateRuntime(String datasetName, CFPType type,
+			FeatureSelection featureSelection, int hashfoldsize, String classifier) throws Exception
 	{
 		//StopWatchUtil.start("all");
 
@@ -216,7 +218,8 @@ public class CFPTest
 		{
 			//			StopWatchUtil.start("all > predict > create instance");
 			double vals[] = new double[cfps.getNumFragments() + 1];
-			HashSet<CFPFragment> set = cfps.getFragmentsForTestCompound(CDKConverter.parseSmiles(smi));
+			HashSet<CFPFragment> set = cfps
+					.getFragmentsForTestCompound(CDKConverter.parseSmiles(smi));
 			for (int i = 0; i < vals.length - 1; i++)
 				vals[i] = set.contains(cfps.getFragmentViaIdx(i)) ? 1.0 : 0.0;
 			Instance testInst;
@@ -237,7 +240,8 @@ public class CFPTest
 		//StopWatchUtil.stop("all");
 		//		StopWatchUtil.print();
 
-		String k = getRuntimeKey(datasetName, type, featureSelection, hashfoldsize, classifier, true);
+		String k = getRuntimeKey(datasetName, type, featureSelection, hashfoldsize, classifier,
+				true);
 		System.out.println(k + " " + create / 1000.0);
 		//		System.out.println(runtimes.get(k));
 		runtimes.put(k, create / 1000.0);
@@ -267,11 +271,12 @@ public class CFPTest
 					{
 						int hashfoldsize = (featureSelection == FeatureSelection.none) ? 0 : 2048;
 						{
-							String k = getRuntimeKey(datasetName, type, featureSelection, hashfoldsize, classifier,
-									true);
+							String k = getRuntimeKey(datasetName, type, featureSelection,
+									hashfoldsize, classifier, true);
 							if (!runtimes.containsKey(k))
 							{
-								estimateRuntime(datasetName, type, featureSelection, hashfoldsize, classifier);
+								estimateRuntime(datasetName, type, featureSelection, hashfoldsize,
+										classifier);
 								System.exit(0);
 							}
 						}

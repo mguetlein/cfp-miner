@@ -17,11 +17,11 @@ import weka.core.Instances;
 
 public class CFPFeatureProvider extends DefaultJobOwner<DataSet[]> implements FeatureProvider
 {
-	int hashfoldSize;
-	FeatureSelection featSelection;
-	CFPType type;
-	DataSet train;
-	DataSet test;
+	private int hashfoldSize;
+	private FeatureSelection featSelection;
+	private CFPType type;
+	private DataSet train;
+	private DataSet test;
 
 	public CFPFeatureProvider(int hashfoldSize, FeatureSelection featSelection, CFPType type)
 	{
@@ -113,6 +113,11 @@ public class CFPFeatureProvider extends DefaultJobOwner<DataSet[]> implements Fe
 	public DataSet getTrainingDataset()
 	{
 		return train;
+	}
+
+	public int getHashfoldSize()
+	{
+		return hashfoldSize;
 	}
 
 	@Override
