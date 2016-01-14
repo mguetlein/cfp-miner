@@ -5,6 +5,7 @@ import java.util.List;
 
 import org.apache.commons.codec.digest.DigestUtils;
 import org.mg.cdklib.data.CDKDataset;
+import org.mg.cdklib.data.DataLoader;
 import org.mg.wekalib.eval2.data.AbstractDataSet;
 import org.mg.wekalib.eval2.data.DataSet;
 
@@ -61,8 +62,8 @@ public class CDKDataSet extends AbstractDataSet
 			smiles.add(d.getSmiles().get(i));
 			endpoints.add(d.getEndpoints().get(i));
 		}
-		return new CDKDataSet(name, new CDKDataset(d.getDatasetName(), smiles, endpoints,
-				d.getWarnings()));
+		return new CDKDataSet(name,
+				new CDKDataset(d.getDatasetName(), smiles, endpoints, d.getWarnings()));
 	}
 
 	@Override
@@ -75,6 +76,24 @@ public class CDKDataSet extends AbstractDataSet
 	public String getName()
 	{
 		return name;
+	}
+
+	private String[] classValues;
+	private Integer positiveClassIdx;
+
+	public String[] getClassValues()
+	{
+		if (classValues == null)
+			classValues = DataLoader.getClassValues(d.getEndpoints());
+		return classValues;
+	}
+
+	@Override
+	public int getPositiveClass()
+	{
+		if (positiveClassIdx == null)
+			positiveClassIdx = DataLoader.getActiveIdx(getClassValues());
+		return positiveClassIdx;
 	}
 
 }

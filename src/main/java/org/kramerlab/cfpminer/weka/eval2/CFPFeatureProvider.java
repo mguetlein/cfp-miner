@@ -18,7 +18,7 @@ import weka.core.Instances;
 public class CFPFeatureProvider extends DefaultJobOwner<DataSet[]> implements FeatureProvider
 {
 	private int hashfoldSize;
-	private FeatureSelection featSelection;
+	private FeatureSelection featureSelection;
 	private CFPType type;
 	private DataSet train;
 	private DataSet test;
@@ -26,26 +26,26 @@ public class CFPFeatureProvider extends DefaultJobOwner<DataSet[]> implements Fe
 	public CFPFeatureProvider(int hashfoldSize, FeatureSelection featSelection, CFPType type)
 	{
 		this.hashfoldSize = hashfoldSize;
-		this.featSelection = featSelection;
+		this.featureSelection = featSelection;
 		this.type = type;
 	}
 
 	public String getName()
 	{
-		return "CFP " + hashfoldSize + " " + featSelection + " " + type;
+		return "CFP " + hashfoldSize + " " + featureSelection + " " + type;
 	}
 
 	@Override
 	public String getKeyPrefix()
 	{
-		return "CFP-" + hashfoldSize + '-' + featSelection + '-' + type
+		return "CFP-" + hashfoldSize + '-' + featureSelection + '-' + type
 				+ (train != null ? (File.separator + train.getKeyPrefix()) : "");
 	}
 
 	@Override
 	public String getKeyContent()
 	{
-		return getKeyContent(hashfoldSize, featSelection, type, train, test);
+		return getKeyContent(hashfoldSize, featureSelection, type, train, test);
 	}
 
 	@Override
@@ -71,11 +71,11 @@ public class CFPFeatureProvider extends DefaultJobOwner<DataSet[]> implements Fe
 					CDKDataset testCDK = ((CDKDataSet) testX).getCDKDataset();
 
 					CFPMiner cfp = new CFPMiner(trainCDK.getEndpoints());
-					cfp.setFeatureSelection(featSelection);
+					cfp.setFeatureSelection(featureSelection);
 					cfp.setHashfoldsize(hashfoldSize);
 					cfp.setType(type);
 					cfp.mine(((CDKDataSet) trainX).getCDKDataset().getSmiles());
-					if (featSelection == FeatureSelection.filt)
+					if (featureSelection == FeatureSelection.filt)
 						cfp.applyFilter();
 					//					System.err.println(cfp.getSummary(false));
 					//					System.err.flush();
@@ -86,8 +86,9 @@ public class CFPFeatureProvider extends DefaultJobOwner<DataSet[]> implements Fe
 							testCDK.getSmiles(), testCDK.getEndpoints());
 					testI.setRelationName(getKeyPrefix());
 					//					System.err.println(testI);
-					setResult(new DataSet[] { new WekaInstancesDataSet(trainI),
-							new WekaInstancesDataSet(testI) });
+					setResult(new DataSet[] {
+							new WekaInstancesDataSet(trainI, trainX.getPositiveClass()),
+							new WekaInstancesDataSet(testI, trainX.getPositiveClass()) });
 				}
 				catch (Exception e)
 				{
@@ -120,10 +121,20 @@ public class CFPFeatureProvider extends DefaultJobOwner<DataSet[]> implements Fe
 		return hashfoldSize;
 	}
 
+	public CFPType getType()
+	{
+		return type;
+	}
+
+	public FeatureSelection getFeatureSelection()
+	{
+		return featureSelection;
+	}
+
 	@Override
 	public FeatureProvider cloneJob()
 	{
-		FeatureProvider fp = new CFPFeatureProvider(hashfoldSize, featSelection, type);
+		FeatureProvider fp = new CFPFeatureProvider(hashfoldSize, featureSelection, type);
 		fp.setTestDataset(test);
 		fp.setTrainingDataset(train);
 		return fp;

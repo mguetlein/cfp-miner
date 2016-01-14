@@ -12,7 +12,6 @@ import org.mg.wekalib.eval2.CV;
 import org.mg.wekalib.eval2.CVEvaluator;
 import org.mg.wekalib.eval2.job.FeatureProvider;
 import org.mg.wekalib.eval2.job.JobOwner;
-import org.mg.wekalib.eval2.job.Printer;
 import org.mg.wekalib.eval2.model.FeatureModel;
 import org.mg.wekalib.eval2.model.Model;
 import org.mg.wekalib.eval2.model.NaiveBayesModel;
@@ -31,7 +30,8 @@ public class CFPValidate2
 		CDKDataset dataset = new DataLoader("data").getDataset(datasetName);
 		CDKDataSet data = new CDKDataSet(datasetName, dataset);
 
-		CFPFeatureProvider feat = new CFPFeatureProvider(1024, FeatureSelection.filt, CFPType.ecfp4);
+		CFPFeatureProvider feat = new CFPFeatureProvider(1024, FeatureSelection.filt,
+				CFPType.ecfp4);
 
 		Model basicModel = new RandomForestModel();
 
@@ -94,13 +94,13 @@ public class CFPValidate2
 
 	public static void clear(String pw) throws Exception
 	{
-		RedisClient redisClient = new RedisClient(RedisURI.create("redis://" + getHost(pw)
-				+ ":6379"));
-		DB.setBlocker(new RedisBlocker(redisClient.connect()));
+		RedisClient redisClient = new RedisClient(
+				RedisURI.create("redis://" + getHost(pw) + ":6379"));
+		DB.init(new RedisResultProvider(redisClient.connect(new ByteArrayCodec())),
+				new RedisBlocker(redisClient.connect()));
+
 		DB.getBlocker().clear();
 		System.out.println("cleared blocker!");
-
-		DB.setResultProvider(new RedisResultProvider(redisClient.connect(new ByteArrayCodec())));
 		DB.getResultProvider().clear();
 		System.out.println("cleared result db!");
 
@@ -109,8 +109,6 @@ public class CFPValidate2
 
 	public static void main(String[] args) throws Exception
 	{
-		Printer.PRINT_TO_SYSTEM_OUT = true;
-
 		//		StopWatchUtil.setUseCpuTime(false);
 		//		DB.setResultProvider(new ResultProviderTime(new ResultProviderImpl()));
 		//clear(args.length > 0 ? args[0] : "");

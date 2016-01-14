@@ -7,6 +7,7 @@ import java.util.List;
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.DefaultParser;
 import org.apache.commons.cli.Options;
+import org.jfree.chart.ChartPanel;
 import org.mg.cdklib.cfp.CFPType;
 import org.mg.cdklib.cfp.FeatureSelection;
 import org.mg.cdklib.data.DataLoader;
@@ -26,8 +27,11 @@ import org.mg.wekalib.eval2.model.Model;
 import org.mg.wekalib.eval2.model.NaiveBayesModel;
 import org.mg.wekalib.eval2.model.RandomForestModel;
 import org.mg.wekalib.eval2.model.SupportVectorMachineModel;
+import org.mg.wekalib.eval2.persistance.BlockerImpl;
+import org.mg.wekalib.eval2.persistance.DB;
+import org.mg.wekalib.eval2.persistance.ResultProviderImpl;
 import org.mg.wekalib.evaluation.PredictionUtil;
-import org.mg.wekautil.Predictions;
+import org.mg.wekalib.evaluation.Predictions;
 
 import weka.classifiers.functions.supportVector.PolyKernel;
 import weka.classifiers.functions.supportVector.RBFKernel;
@@ -40,7 +44,8 @@ public class CFPNestedCV
 	List<Model> classifiers;
 	List<String> datasets;
 
-	private DataLoader loader = new DataLoader("data");
+	private static DataLoader loader = new DataLoader("data");
+
 	private List<Model> featModels;
 	private List<CDKDataSet> data;
 
@@ -104,14 +109,24 @@ public class CFPNestedCV
 			data.add(new CDKDataSet(datasetName, loader.getDataset(datasetName)));
 	}
 
-	public MultiDatasetRunner<String> jobSelectModel() throws Exception
+	private CVEvaluator innerCV()
 	{
-		init();
-
 		CVEvaluator innerCV = new CVEvaluator();
 		innerCV.setModels(ListUtil.toArray(featModels));
 		innerCV.setNumFolds(numFolds);
 		innerCV.setRepetitions(numRepetitions);
+		//		innerCV.setEvalCriterion(
+		//				new CVEvaluator.DefaultEvalCriterion(PredictionUtil.ClassificationMeasure.AUPRC));
+		innerCV.setEvalCriterion(
+				new LowNumFeaturesEvalCriterion(PredictionUtil.ClassificationMeasure.AUPRC));
+		return innerCV;
+	}
+
+	public MultiDatasetRunner<String> jobSelectModel() throws Exception
+	{
+		init();
+
+		CVEvaluator innerCV = innerCV();
 
 		MultiDatasetRunner<String> d = new MultiDatasetRunner<>();
 		d.setJob(innerCV);
@@ -120,48 +135,54 @@ public class CFPNestedCV
 		return d;
 	}
 
-	public FeatureModel selectModel(String dataset) throws Exception
+	public static FeatureModel selectModel(String dataset) throws Exception
 	{
-		System.out.println(dataset);
-		MultiDatasetRunner<String> d = jobSelectModel();
+		CFPNestedCV cv = new CFPNestedCV();
+		cv.datasets = ListUtil.createList(dataset);
+		MultiDatasetRunner<String> d = cv.jobSelectModel();
 		if (!d.isDone())
-			throw new IllegalArgumentException("not yet done");
-		int idx = datasets.indexOf(dataset);
-		CVEvaluator cvEval = (CVEvaluator) d.jobs().get(idx);
+			d.runSequentially();
+		if (d.jobs().size() != 1)
+			throw new IllegalStateException();
+		CVEvaluator cvEval = (CVEvaluator) d.jobs().get(0);
 		return (FeatureModel) cvEval.getBestModel();
 	}
 
-	public Model selectModelClassifier(String dataset) throws Exception
-	{
-		return selectModel(dataset).getModel();
-	}
+	//	public static Model selectModelClassifier(String dataset) throws Exception
+	//	{
+	//		return selectModel(dataset).getModel();
+	//	}
+	//
+	//	public static CFPFeatureProvider selectModelFeatures(String dataset) throws Exception
+	//	{
+	//		return (CFPFeatureProvider) selectModel(dataset).getFeatureProvider();
+	//	}
 
-	public CFPFeatureProvider selectModelFeatures(String dataset) throws Exception
-	{
-		return (CFPFeatureProvider) selectModel(dataset).getFeatureProvider();
-	}
-
-	public ResultSet selectModelOverview() throws Exception
+	public static ResultSet selectModelOverview() throws Exception
 	{
 		ResultSet rs = new ResultSet();
-		for (String dataset : datasets)
+		for (String dataset : ArrayUtil.toList(loader.allDatasetsSorted()))
 		{
+			//			if (!dataset.equals("CPDBAS_Mutagenicity"))
+			//				continue;
+			System.out.println(dataset);
 			int idx = rs.addResult();
 			rs.setResultValue(idx, "Dataset", dataset.replaceAll("_", " "));
-			Model m = selectModelClassifier(dataset);
+			FeatureModel featureModel = selectModel(dataset);
+			Model m = featureModel.getModel();
 			rs.setResultValue(idx, "Alg", m.getAlgorithmShortName());
 			rs.setResultValue(idx, "Params", m.getAlgorithmParamsNice());
-			CFPFeatureProvider f = selectModelFeatures(dataset);
+			CFPFeatureProvider f = (CFPFeatureProvider) featureModel.getFeatureProvider();
 			rs.setResultValue(idx, "#Frags", f.getHashfoldSize());
 
-			ResultSet rsV = validateModel(dataset);
-			rsV = rsV.join("Dataset");
-			if (rsV.getNumResults() != 1)
-				throw new IllegalStateException();
-			for (PredictionUtil.ClassificationMeasure measure : PredictionUtil.ClassificationMeasure
-					.values())
-				rs.setResultValue(idx, measure.shortName(),
-						rsV.getResultValue(0, measure.toString()));
+			//			ResultSet rsV = validateModel(dataset);
+			//			rsV = rsV.join("Dataset");
+			//			if (rsV.getNumResults() != 1)
+			//				throw new IllegalStateException();
+			//			for (PredictionUtil.ClassificationMeasure measure : PredictionUtil.ClassificationMeasure
+			//					.values())
+			//				rs.setResultValue(idx, measure.shortName(),
+			//						rsV.getResultValue(0, measure.toString()));
 		}
 
 		System.out.println(rs.getResultValues("Alg"));
@@ -174,10 +195,7 @@ public class CFPNestedCV
 	{
 		init();
 
-		CVEvaluator innerCV = new CVEvaluator();
-		innerCV.setModels(ListUtil.toArray(featModels));
-		innerCV.setNumFolds(numFolds);
-		innerCV.setRepetitions(numRepetitions);
+		CVEvaluator innerCV = innerCV();
 
 		CVEvalModel cvm = new CVEvalModel();
 		cvm.setCvEvaluator(innerCV);
@@ -194,13 +212,16 @@ public class CFPNestedCV
 		return d;
 	}
 
-	public ResultSet validateModel(String dataset) throws Exception
+	public static ResultSet validateModel(String dataset) throws Exception
 	{
-		MultiDatasetRunner<String> d = jobValidateModel();
+		CFPNestedCV cv = new CFPNestedCV();
+		cv.datasets = ListUtil.createList(dataset);
+		MultiDatasetRunner<String> d = cv.jobValidateModel();
 		if (!d.isDone())
 			d.runSequentially();
-		int idx = datasets.indexOf(dataset);
-		CVEvaluator cvEval = (CVEvaluator) d.jobs().get(idx);
+		if (d.jobs().size() != 1)
+			throw new IllegalStateException();
+		CVEvaluator cvEval = (CVEvaluator) d.jobs().get(0);
 		List<Predictions> pred = cvEval.getPredictions();
 
 		ResultSet rs = new ResultSet();
@@ -215,15 +236,15 @@ public class CFPNestedCV
 				rs.setResultValue(rIdx, "Seed", seed);
 				for (PredictionUtil.ClassificationMeasure m : PredictionUtil.ClassificationMeasure
 						.values())
-					rs.setResultValue(rIdx, m.toString(),
-							PredictionUtil.getClassificationMeasure(p, m));
+					rs.setResultValue(rIdx, m.toString(), PredictionUtil.getClassificationMeasure(p,
+							m, cvEval.getDataset().getPositiveClass()));
 			}
 			seed++;
 		}
 		return rs;
 	}
 
-	public void plotValidationResult(String dataset, String pngFile) throws Exception
+	public static void plotValidationResult(String dataset, String pngFile) throws Exception
 	{
 		plotValidationResult(validateModel(dataset), pngFile);
 	}
@@ -233,12 +254,19 @@ public class CFPNestedCV
 		ResultSetBoxPlot plot = new ResultSetBoxPlot(rs, null, null, null, ArrayUtil
 				.toList(ArrayUtil.toStringArray(PredictionUtil.ClassificationMeasure.values())));
 		plot.setHideMean(true);
+		plot.setPrintMeanAndStdev(true);
 		plot.printNumResultsPerPlot(false);
+		Dimension dim = new Dimension(450, 200);
+		plot.setFontSize(12);
 
 		if (pngFile != null)
-			plot.ToPNGFile(pngFile, new Dimension(450, 150));
+			plot.ToPNGFile(pngFile, dim);
 		else
-			SwingUtil.showInFrame(plot.getChart());
+		{
+			ChartPanel p = plot.getChart();
+			p.setPreferredSize(dim);
+			SwingUtil.showInFrame(p);
+		}
 	}
 
 	public static void run(boolean validate, String[] datasets, Integer sizes[],
@@ -264,15 +292,7 @@ public class CFPNestedCV
 
 	public static void printSelectedAlgorithms() throws Exception
 	{
-		Printer.PRINT_TO_SYSTEM_OUT = true;
-
-		CFPNestedCV cv = new CFPNestedCV();
-
-		//cv.datasets = ListUtil.createList("ChEMBL_51");
-		cv.datasets.remove("AMES");
-		cv.jobSelectModel().runSequentially();
-
-		ResultSet rs = cv.selectModelOverview();
+		ResultSet rs = selectModelOverview();
 		rs.sortResults("Dataset", DataLoader.CFPDataComparator);
 
 		System.out.println(rs.toNiceString());
@@ -285,7 +305,6 @@ public class CFPNestedCV
 
 	public static void debug() throws Exception
 	{
-		Printer.PRINT_TO_SYSTEM_OUT = true;
 		//runModelBuildJob("1024,CPDBAS_Dog_Primates,");
 
 		//run(true, new String[] { "CPDBAS_Rat" }, null);
@@ -294,24 +313,24 @@ public class CFPNestedCV
 		//		cv.datasets.remove("AMES");
 		//		cv.jobValidateModel().runSequentially();
 
-		printSelectedAlgorithms();
+		//		printSelectedAlgorithms();
 
-		//		{
-		//			CFPNestedCV cv = new CFPNestedCV();
-		//			cv.datasets.remove("AMES");
-		//			//cv.datasets = ListUtil.createList("ChEMBL_51");
-		//			cv.jobSelectModel().runSequentially();
-		//			System.out.println(cv.selectModelOverview().toNiceString());
-		//			//			//			cv.sizes = ListUtil.createList(8192);
-		//			//			//			cv.datasets = ListUtil.createList("ChEMBL_51");
-		//			//			cv.jobSelectModel().runSequentially();
-		//			//			for (String dataset : cv.datasets)
-		//			//			{
-		//			//				System.out.println(dataset);
-		//			//				System.out.println(cv.selectModelClassifier(dataset).getName());
-		//			//				System.out.println(cv.selectModelFeatures(dataset).getName());
-		//			//			}
-		//		}
+		{
+			//			CFPNestedCV cv = new CFPNestedCV();
+			//			//cv.datasets.remove("AMES");
+			//			cv.datasets = ListUtil.createList("AMES");
+			//			cv.jobSelectModel().runSequentially();
+			System.out.println(selectModelOverview().toNiceString());
+			//			//			cv.sizes = ListUtil.createList(8192);
+			//			//			cv.datasets = ListUtil.createList("ChEMBL_51");
+			//			cv.jobSelectModel().runSequentially();
+			//			for (String dataset : cv.datasets)
+			//			{
+			//				System.out.println(dataset);
+			//				System.out.println(cv.selectModelClassifier(dataset).getName());
+			//				System.out.println(cv.selectModelFeatures(dataset).getName());
+			//			}
+		}
 
 		//		{
 		//			String dataset = "CPDBAS_Mouse";
@@ -337,11 +356,18 @@ public class CFPNestedCV
 
 	public static void main(String[] args) throws Exception
 	{
+		//		Printer.PRINT_TO_SYSTEM_OUT = true;
+		//		args = "-d DUD_vegfr2 -s 1024 -c 0,1".split(" ");
+
 		if (args.length > 0 && args[0].equals("debug"))
+		{
 			debug();
+		}
 		else
 		{
-			Printer.setOutfileSuffix(
+			DB.init(new ResultProviderImpl("jobs/store", "jobs/tmp"),
+					new BlockerImpl("jobs/block"));
+			Printer.setOutfile("jobs/out",
 					ArrayUtil.toString(args, "_", "", "", "").replaceAll(",", "#"));
 			Options opt = new Options();
 			opt.addOption("s", true, "sizes, comma seperated");
