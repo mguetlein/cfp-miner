@@ -109,6 +109,7 @@ public class CFPValidate2
 
 	public static void main(String[] args) throws Exception
 	{
+
 		//		StopWatchUtil.setUseCpuTime(false);
 		//		DB.setResultProvider(new ResultProviderTime(new ResultProviderImpl()));
 		//clear(args.length > 0 ? args[0] : "");

@@ -163,6 +163,8 @@ public class CFPNestedCV
 		ResultSet rs = new ResultSet();
 		for (String dataset : ArrayUtil.toList(loader.allDatasetsSorted()))
 		{
+			//			if (!dataset.equals("AMES"))
+			//				continue;
 			//			if (!dataset.equals("CPDBAS_Mutagenicity"))
 			//				continue;
 			System.out.println(dataset);
@@ -175,14 +177,14 @@ public class CFPNestedCV
 			CFPFeatureProvider f = (CFPFeatureProvider) featureModel.getFeatureProvider();
 			rs.setResultValue(idx, "#Frags", f.getHashfoldSize());
 
-			//			ResultSet rsV = validateModel(dataset);
-			//			rsV = rsV.join("Dataset");
-			//			if (rsV.getNumResults() != 1)
-			//				throw new IllegalStateException();
-			//			for (PredictionUtil.ClassificationMeasure measure : PredictionUtil.ClassificationMeasure
-			//					.values())
-			//				rs.setResultValue(idx, measure.shortName(),
-			//						rsV.getResultValue(0, measure.toString()));
+			ResultSet rsV = validateModel(dataset);
+			rsV = rsV.join("Dataset");
+			if (rsV.getNumResults() != 1)
+				throw new IllegalStateException();
+			for (PredictionUtil.ClassificationMeasure measure : PredictionUtil.ClassificationMeasure
+					.values())
+				rs.setResultValue(idx, measure.shortName(),
+						rsV.getResultValue(0, measure.toString()));
 		}
 
 		System.out.println(rs.getResultValues("Alg"));
@@ -295,6 +297,7 @@ public class CFPNestedCV
 		ResultSet rs = selectModelOverview();
 		rs.sortResults("Dataset", DataLoader.CFPDataComparator);
 
+		rs.setNumDecimalPlaces(3);
 		System.out.println(rs.toNiceString());
 		String f = System.getProperty("user.home")
 				+ "/documents/ecfps/latex/results/table_nested.tex";
@@ -305,6 +308,9 @@ public class CFPNestedCV
 
 	public static void debug() throws Exception
 	{
+		DB.init(new ResultProviderImpl("/home/martin/tmp/jobs/store", "/home/martin/tmp/jobs/tmp"),
+				null);
+
 		//runModelBuildJob("1024,CPDBAS_Dog_Primates,");
 
 		//run(true, new String[] { "CPDBAS_Rat" }, null);
@@ -320,7 +326,7 @@ public class CFPNestedCV
 			//			//cv.datasets.remove("AMES");
 			//			cv.datasets = ListUtil.createList("AMES");
 			//			cv.jobSelectModel().runSequentially();
-			System.out.println(selectModelOverview().toNiceString());
+			//System.out.println(selectModelOverview().toNiceString());
 			//			//			cv.sizes = ListUtil.createList(8192);
 			//			//			cv.datasets = ListUtil.createList("ChEMBL_51");
 			//			cv.jobSelectModel().runSequentially();
@@ -332,32 +338,32 @@ public class CFPNestedCV
 			//			}
 		}
 
-		//		{
-		//			String dataset = "CPDBAS_Mouse";
-		//
-		//			CFPNestedCV cv = new CFPNestedCV();
-		//			//			cv.numFolds = 4;
-		//			//			cv.numRepetitions = 5;
-		//			//			cv.sizes = ListUtil.createList(1024, 2048);
-		//			cv.datasets = ListUtil.createList(dataset);
-		//			//			cv.classifiers = ListUtil.create(Model.class, new NaiveBayesModel(),
-		//			//					new RandomForestModel());
-		//
-		//			//cv.jobSelectModel().runSequentially();
-		//			//			System.out.println(cv.selectModelClassifier(dataset).getName());
-		//			//			System.out.println(cv.selectModelFeatures(dataset).getName());
-		//			//
-		//			cv.jobValidateModel().runSequentially();
-		//			//			System.out.println(cv.validateModel(dataset).toNiceString());
-		//			//			cv.plotValidationResult(dataset, null);
-		//			//		cv.jobValidateModel().runSequentially();
-		//		}
+		{
+			String dataset = "CPDBAS_Dog_Primates";
+
+			CFPNestedCV cv = new CFPNestedCV();
+			//			cv.numFolds = 4;
+			//			cv.numRepetitions = 5;
+			//			cv.sizes = ListUtil.createList(1024, 2048);
+			cv.datasets = ListUtil.createList(dataset);
+			//			cv.classifiers = ListUtil.create(Model.class, new NaiveBayesModel(),
+			//					new RandomForestModel());
+
+			//cv.jobSelectModel().runSequentially();
+			//			System.out.println(cv.selectModelClassifier(dataset).getName());
+			//			System.out.println(cv.selectModelFeatures(dataset).getName());
+			//
+			cv.jobValidateModel().runSequentially();
+			//			System.out.println(cv.validateModel(dataset).toNiceString());
+			//			cv.plotValidationResult(dataset, null);
+			//		cv.jobValidateModel().runSequentially();
+		}
 	}
 
 	public static void main(String[] args) throws Exception
 	{
 		//		Printer.PRINT_TO_SYSTEM_OUT = true;
-		//		args = "-d DUD_vegfr2 -s 1024 -c 0,1".split(" ");
+		//args = "-d DUD_vegfr2 -s 1024 -c 0,1".split(" ");
 
 		if (args.length > 0 && args[0].equals("debug"))
 		{
