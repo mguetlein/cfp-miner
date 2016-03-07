@@ -1,10 +1,10 @@
-package org.kramerlab.cfpminer.experiments.plots;
+package org.kramerlab.cfpminer.experiments.validation.plots;
 
 import java.awt.Dimension;
 
 import org.jfree.chart.ChartPanel;
-import org.kramerlab.cfpminer.experiments.CFPCrossValidation;
-import org.kramerlab.cfpminer.experiments.CreatePlots;
+import org.kramerlab.cfpminer.experiments.validation.CFPCrossValidation;
+import org.kramerlab.cfpminer.experiments.validation.PaperValidationResults;
 import org.mg.cdklib.cfp.CFPType;
 import org.mg.cdklib.data.DataLoader;
 import org.mg.javalib.datamining.ResultSet;
@@ -14,13 +14,11 @@ import org.mg.javalib.util.ListUtil;
 import org.mg.javalib.util.SwingUtil;
 import org.mg.wekalib.eval2.model.Model;
 import org.mg.wekalib.eval2.model.ModelProvider;
-import org.mg.wekalib.eval2.persistance.DB;
-import org.mg.wekalib.eval2.persistance.ResultProviderImpl;
 import org.mg.wekalib.evaluation.PredictionUtil.ClassificationMeasure;
 
-public class CFPLineChart extends CreatePlots
+public class CFPLineChart extends PaperValidationResults
 {
-	public CFPLineChart(CFPCrossValidation cv, ClassificationMeasure measures[], boolean addRuntime)
+	public void plot(CFPCrossValidation cv, ClassificationMeasure measures[], boolean addRuntime)
 			throws Exception
 	{
 		if (cv.classifiers.size() != 1)
@@ -129,7 +127,7 @@ public class CFPLineChart extends CreatePlots
 		}
 	}
 
-	public static void create() throws Exception
+	public void create() throws Exception
 	{
 		//Model model = ModelProvider.RANDOM_FOREST;
 		for (Model model : ModelProvider.ALL_MODELS_PARAM_DEFAULT)
@@ -140,10 +138,9 @@ public class CFPLineChart extends CreatePlots
 			cv.classifiers = ListUtil.create(Model.class, model);
 			cv.types = ListUtil.createList(CFPType.ecfp4);
 
-			new CFPLineChart(cv,
-					new ClassificationMeasure[] { ClassificationMeasure.Accuracy,
-							ClassificationMeasure.AUC, ClassificationMeasure.EnrichmentFactor5,
-							ClassificationMeasure.AUPRC,
+			plot(cv, new ClassificationMeasure[] { ClassificationMeasure.Accuracy,
+					ClassificationMeasure.AUC, ClassificationMeasure.EnrichmentFactor5,
+					ClassificationMeasure.AUPRC,
 
 					//							ClassificationMeasure.BEDROC1,
 					//							ClassificationMeasure.BEDROC2, ClassificationMeasure.BEDROC5,
@@ -154,15 +151,13 @@ public class CFPLineChart extends CreatePlots
 					//ClassificationMeasure.BEDROC50
 			}, //, ClassificationMeasure.BEDROCa100 },
 					true);
-			new CFPLineChart(cv, new ClassificationMeasure[] { ClassificationMeasure.AUPRC },
-					false);
+			plot(cv, new ClassificationMeasure[] { ClassificationMeasure.AUPRC }, false);
 		}
 	}
 
 	public static void main(String[] args) throws Exception
 	{
-		DB.init(new ResultProviderImpl("jobs/store", "jobs/tmp"), null);
-		create();
+		new CFPLineChart().create();
 		SwingUtil.waitWhileWindowsVisible();
 		System.exit(0);
 	}

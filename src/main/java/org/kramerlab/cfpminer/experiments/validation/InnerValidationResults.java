@@ -1,4 +1,4 @@
-package org.kramerlab.cfpminer.experiments;
+package org.kramerlab.cfpminer.experiments.validation;
 
 import java.awt.Dimension;
 import java.util.HashMap;
@@ -13,12 +13,10 @@ import org.mg.javalib.util.ListUtil;
 import org.mg.javalib.util.SwingUtil;
 import org.mg.wekalib.eval2.model.FeatureModel;
 import org.mg.wekalib.eval2.model.Model;
-import org.mg.wekalib.eval2.persistance.DB;
-import org.mg.wekalib.eval2.persistance.ResultProviderImpl;
 import org.mg.wekalib.evaluation.PredictionUtil;
 import org.mg.wekalib.evaluation.PredictionUtil.ClassificationMeasure;
 
-public class InnerValidationResults extends CreatePlots
+public class InnerValidationResults extends PaperValidationResults
 {
 	public static void plotValidationResult(ResultSet rs, String pngFile) throws Exception
 	{
@@ -40,7 +38,7 @@ public class InnerValidationResults extends CreatePlots
 		}
 	}
 
-	public static ResultSet getValidationResults(String dataset) throws Exception
+	public ResultSet getValidationResults(String dataset) throws Exception
 	{
 		CFPCrossValidation cv = CFPCrossValidation.paramOptimize();
 		cv.datasets = ListUtil.createList(dataset);
@@ -48,17 +46,17 @@ public class InnerValidationResults extends CreatePlots
 		return rs;
 	}
 
-	public static void plotValidationResult(String dataset, String pngFile) throws Exception
+	public void plotValidationResult(String dataset, String pngFile) throws Exception
 	{
 		plotValidationResult(getValidationResults(dataset), pngFile);
 	}
 
-	public static void printSelectedAndValidatedAlgorithms() throws Exception
+	public void printSelectedAndValidatedAlgorithms() throws Exception
 	{
 		printSelectedAndValidatedAlgorithms((String) null);
 	}
 
-	public static void printSelectedAndValidatedAlgorithms(String... dataset) throws Exception
+	public void printSelectedAndValidatedAlgorithms(String... dataset) throws Exception
 	{
 		CFPCrossValidation cv = CFPCrossValidation.paramOptimize();
 		if (dataset != null && dataset[0] != null)
@@ -108,7 +106,7 @@ public class InnerValidationResults extends CreatePlots
 		System.out.println(rs.getResultValues("HashfoldSize"));
 	}
 
-	public static FeatureModel getSelectedModel(String dataset) throws Exception
+	public FeatureModel getSelectedModel(String dataset) throws Exception
 	{
 		CFPCrossValidation cv = CFPCrossValidation.paramOptimize();
 		cv.datasets = ListUtil.createList(dataset);
@@ -118,8 +116,6 @@ public class InnerValidationResults extends CreatePlots
 
 	public static void main(String[] args) throws Exception
 	{
-		DB.init(new ResultProviderImpl("jobs/store", "jobs/tmp"), null);
-
 		//		CFPCrossValidation cv = CFPCrossValidation.paramOptimize();
 		//		cv.datasets = ListUtil.createList("NCTRER");
 		//		System.out.println(cv.selectModelResults(ClassificationMeasure.values(), false));
@@ -131,8 +127,8 @@ public class InnerValidationResults extends CreatePlots
 
 		//		plotValidationResult("NCTRER", null);
 
-		WRITE_FILES = true;
-		printSelectedAndValidatedAlgorithms();
+		WRITE_FILES = false;
+		new InnerValidationResults().printSelectedAndValidatedAlgorithms();
 		System.exit(0);
 	}
 }

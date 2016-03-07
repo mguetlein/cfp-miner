@@ -5,7 +5,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 
-import org.kramerlab.cfpminer.experiments.plots.CFPDiffChart;
 import org.mg.cdklib.data.DataLoader;
 import org.mg.javalib.datamining.ResultSet;
 import org.mg.javalib.datamining.WekaResultSetUtil;
@@ -14,19 +13,18 @@ import org.mg.javalib.util.ArrayUtil;
 import org.mg.javalib.util.ListUtil;
 import org.mg.wekalib.eval2.model.Model;
 import org.mg.wekalib.eval2.model.ModelProvider;
-import org.mg.wekalib.eval2.persistance.DB;
-import org.mg.wekalib.eval2.persistance.ResultProviderImpl;
 
-public class CreatePlots
+public class PaperResults
 {
-	//	public static final List<String> DATASETS = ListUtil.createList("CPDBAS_Mutagenicity",
-	//			"DUD_vegfr2", "DUD_hivrt", "DUD_cdk2");
-	public static final List<String> DATASETS = ArrayUtil
-			.toList(new DataLoader("data").allDatasetsSorted());
-	public static boolean SHOW_PLOTS = true;
-	public static boolean WRITE_FILES = false;
-	public static final String DEST_FOLDER = "/home/martin/documents/ecfps/latex/results/";
-	public static final List<Integer> SIZES = ListUtil.createList(1024, 2048, 4096, 8192);
+	public static final String RESULTS = System.getProperty("user.home") + "/results/cfpminer";
+
+	protected static final String DEST_FOLDER = System.getProperty("user.home")
+			+ "/documents/ecfps/latex/results/";
+	protected static boolean SHOW_PLOTS = true;
+	protected static boolean WRITE_FILES = false;
+	protected static final List<String> DATASETS = ArrayUtil
+			.toList(DataLoader.INSTANCE.allDatasetsSorted());
+	protected static final List<Integer> SIZES = ListUtil.createList(1024, 2048, 4096, 8192);
 
 	public static final String RUNTIME = "Time";
 
@@ -36,25 +34,10 @@ public class CreatePlots
 		ResultSet.T_TESTER = WekaResultSetUtil.T_TESTER;
 	}
 
-	protected static void toPDF(String svgFileWithoutExtension)
+	protected void toPDF(String svgFileWithoutExtension)
 	{
 		new ExternalTool(null).run("to-pdf", ("rsvg-convert -f pdf -o " + svgFileWithoutExtension
 				+ ".pdf " + svgFileWithoutExtension + ".svg").split(" "));
-	}
-
-	public static void main(String[] args) throws Exception
-	{
-		DB.init(new ResultProviderImpl("jobs/store", "jobs/tmp"), null);
-		SHOW_PLOTS = false;
-		WRITE_FILES = true;
-		//CFPLineChart.create();
-		//new NumFragmentsAndCollisions().printTables();
-		//new DatasetSizeAndClasses().printTables();
-		new CFPDiffChart().create();
-		//		new CFPWinLossChart().plotWinLossFeatureSelection();
-		//		new CFPWinLossChart().plotWinLossECFPDiameter();
-		//		new CFPWinLossChart().plotWinLossECFPvsFCFP();
-		System.exit(0);
 	}
 
 	private static HashMap<Model, Integer> ALG_ORDERING = new HashMap<>();
@@ -82,4 +65,5 @@ public class CreatePlots
 			return ALG_ORDERING.get(m1) - ALG_ORDERING.get(m2);
 		}
 	};
+
 }

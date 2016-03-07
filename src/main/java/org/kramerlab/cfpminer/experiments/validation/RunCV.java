@@ -1,4 +1,4 @@
-package org.kramerlab.cfpminer.experiments;
+package org.kramerlab.cfpminer.experiments.validation;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -6,6 +6,7 @@ import java.util.List;
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.DefaultParser;
 import org.apache.commons.cli.Options;
+import org.kramerlab.cfpminer.experiments.PaperResults;
 import org.mg.cdklib.cfp.CFPType;
 import org.mg.cdklib.cfp.FeatureSelection;
 import org.mg.javalib.datamining.ResultSet;
@@ -22,6 +23,15 @@ import org.mg.wekalib.evaluation.PredictionUtil.ClassificationMeasure;
 
 public class RunCV
 {
+	static void initDB(boolean blockEnabled, boolean outdirEnabled, String outfilePrefix)
+	{
+		DB.init(new ResultProviderImpl(PaperResults.RESULTS + "/jobs/store",
+				PaperResults.RESULTS + "/jobs/tmp"),
+				blockEnabled ? new BlockerImpl(PaperResults.RESULTS + "/jobs/block") : null);
+		if (outdirEnabled)
+			Printer.setOutfile(PaperResults.RESULTS + "/jobs/out", outfilePrefix);
+	}
+
 	public static void main(String[] args) throws Exception
 	{
 		boolean debug = false;
@@ -43,10 +53,7 @@ public class RunCV
 		}
 		else
 		{
-			DB.init(new ResultProviderImpl("jobs/store", "jobs/tmp"),
-					new BlockerImpl("jobs/block"));
-			Printer.setOutfile("jobs/out",
-					ArrayUtil.toString(args, "_", "", "", "").replaceAll(",", "#"));
+			initDB(true, true, ArrayUtil.toString(args, "_", "", "", "").replaceAll(",", "#"));
 		}
 		Options opt = new Options();
 		opt.addOption("s", true, "sizes, comma seperated");

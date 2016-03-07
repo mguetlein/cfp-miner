@@ -2,7 +2,6 @@ package org.kramerlab.cfpminer.weka.eval2;
 
 import java.io.File;
 
-import org.kramerlab.cfpminer.CFPtoArff;
 import org.kramerlab.cfpminer.experiments.NumFragmentsAndCollisions;
 import org.mg.cdklib.cfp.CFPMiner;
 import org.mg.cdklib.cfp.CFPType;

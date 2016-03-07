@@ -1,4 +1,4 @@
-package org.kramerlab.cfpminer.experiments;
+package org.kramerlab.cfpminer.experiments.validation;
 
 import java.io.File;
 import java.util.ArrayList;
@@ -7,6 +7,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 
 import org.apache.commons.lang3.NotImplementedException;
+import org.kramerlab.cfpminer.experiments.ModelBuildingRuntimes;
 import org.kramerlab.cfpminer.weka.eval2.CDKDataSet;
 import org.kramerlab.cfpminer.weka.eval2.CFPFeatureProvider;
 import org.kramerlab.cfpminer.weka.eval2.LowNumFeaturesEvalCriterion;
@@ -89,7 +90,7 @@ public class CFPCrossValidation
 	public List<Model> classifiers;
 	public List<String> datasets;
 
-	private static DataLoader loader = new DataLoader("data");
+	private static DataLoader loader = DataLoader.INSTANCE;
 	private List<Model> featModels;
 	private List<CDKDataSet> data;
 
@@ -471,7 +472,7 @@ public class CFPCrossValidation
 						res.setResultValue(rIdx, m.toString(), vRes.get(fold).get(m));
 
 					if (addRuntime)
-						res.setResultValue(rIdx, CreatePlots.RUNTIME, runtime);
+						res.setResultValue(rIdx, PaperValidationResults.RUNTIME, runtime);
 				}
 
 				//				Predictions predictions = val.getResult();

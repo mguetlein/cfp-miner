@@ -1,4 +1,4 @@
-package org.kramerlab.cfpminer.experiments.plots;
+package org.kramerlab.cfpminer.experiments.validation.plots;
 
 import java.awt.Dimension;
 import java.util.Collections;
@@ -8,8 +8,8 @@ import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 
-import org.kramerlab.cfpminer.experiments.CFPCrossValidation;
-import org.kramerlab.cfpminer.experiments.CreatePlots;
+import org.kramerlab.cfpminer.experiments.validation.CFPCrossValidation;
+import org.kramerlab.cfpminer.experiments.validation.PaperValidationResults;
 import org.mg.cdklib.cfp.CFPType;
 import org.mg.cdklib.cfp.FeatureSelection;
 import org.mg.javalib.datamining.Result;
@@ -19,11 +19,9 @@ import org.mg.javalib.freechart.WinLossBarChart;
 import org.mg.javalib.util.ArrayUtil;
 import org.mg.javalib.util.ListUtil;
 import org.mg.javalib.util.SwingUtil;
-import org.mg.wekalib.eval2.persistance.DB;
-import org.mg.wekalib.eval2.persistance.ResultProviderImpl;
 import org.mg.wekalib.evaluation.PredictionUtil.ClassificationMeasure;
 
-public class CFPWinLossChart extends CreatePlots
+public class CFPWinLossChart extends PaperValidationResults
 {
 	public CFPWinLossChart()
 	{
@@ -501,7 +499,6 @@ public class CFPWinLossChart extends CreatePlots
 
 	public static void main(String[] args) throws Exception
 	{
-		DB.init(new ResultProviderImpl("jobs/store", "jobs/tmp"), null);
 		new CFPWinLossChart().plotWinLossFeatureSelection();
 		//new CFPWinLossChart().plotWinLossECFPDiameter();
 		//new CFPWinLossChart().plotWinLossECFPvsFCFP();

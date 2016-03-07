@@ -1,4 +1,4 @@
-package org.kramerlab.cfpminer.experiments.plots;
+package org.kramerlab.cfpminer.experiments.validation.plots;
 
 import java.awt.Color;
 import java.awt.Dimension;
@@ -13,8 +13,8 @@ import javax.swing.SwingConstants;
 
 import org.jfree.chart.ChartPanel;
 import org.jfree.chart.JFreeChart;
-import org.kramerlab.cfpminer.experiments.CFPCrossValidation;
-import org.kramerlab.cfpminer.experiments.CreatePlots;
+import org.kramerlab.cfpminer.experiments.validation.CFPCrossValidation;
+import org.kramerlab.cfpminer.experiments.validation.PaperValidationResults;
 import org.mg.cdklib.cfp.CFPType;
 import org.mg.cdklib.cfp.FeatureSelection;
 import org.mg.javalib.datamining.Result;
@@ -24,14 +24,12 @@ import org.mg.javalib.datamining.ResultSetFilter;
 import org.mg.javalib.util.ArrayUtil;
 import org.mg.javalib.util.ListUtil;
 import org.mg.javalib.util.SwingUtil;
-import org.mg.wekalib.eval2.persistance.DB;
-import org.mg.wekalib.eval2.persistance.ResultProviderImpl;
 import org.mg.wekalib.evaluation.PredictionUtil.ClassificationMeasure;
 
 import com.jgoodies.forms.builder.DefaultFormBuilder;
 import com.jgoodies.forms.layout.FormLayout;
 
-public class CFPDiffChart extends CreatePlots
+public class CFPDiffChart extends PaperValidationResults
 {
 	float fontSize = 15.0F;
 
@@ -220,7 +218,6 @@ public class CFPDiffChart extends CreatePlots
 
 	public static void main(String[] args) throws Exception
 	{
-		DB.init(new ResultProviderImpl("jobs/store", "jobs/tmp"), null);
 		new CFPDiffChart().create();
 		SwingUtil.waitWhileWindowsVisible();
 		System.exit(0);

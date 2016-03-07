@@ -6,12 +6,11 @@ import org.mg.cdklib.data.DataLoader;
 import org.mg.javalib.datamining.ResultSet;
 import org.mg.javalib.util.FileUtil;
 
-public class DatasetSizeAndClasses extends CreatePlots
+public class DatasetSizeAndClasses extends PaperResults
 {
-
 	public void printTables()
 	{
-		DataLoader d = new DataLoader("data");
+		DataLoader d = DataLoader.INSTANCE;
 		String datasets[] = d.allDatasets();
 		Arrays.sort(datasets, 0, datasets.length, DataLoader.CFPDataComparator);
 

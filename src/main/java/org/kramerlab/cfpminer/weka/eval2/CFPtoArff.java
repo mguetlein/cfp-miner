@@ -1,4 +1,4 @@
-package org.kramerlab.cfpminer;
+package org.kramerlab.cfpminer.weka.eval2;
 
 import java.io.File;
 import java.util.HashMap;

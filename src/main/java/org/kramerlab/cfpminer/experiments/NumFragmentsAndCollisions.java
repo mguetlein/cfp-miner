@@ -16,9 +16,10 @@ import org.mg.javalib.util.ArrayUtil;
 import org.mg.javalib.util.DoubleKeyHashMap;
 import org.mg.javalib.util.FileUtil;
 
-public class NumFragmentsAndCollisions extends CreatePlots
+public class NumFragmentsAndCollisions extends PaperResults
 {
-	File file = new File("data_collisions/collisions.result");
+	File file = new File(
+			System.getProperty("user.home") + "/results/cdklib/data_collisions/collisions.result");
 
 	//	KeyValueFileStore<String, CFPMiner> minedFeatures = new KeyValueFileStore<>(
 	//			"store/minedFeatures", true, true, "store/minedFeatures/tmp", true);
@@ -98,10 +99,8 @@ public class NumFragmentsAndCollisions extends CreatePlots
 
 	public void compute() throws Exception
 	{
-		DataLoader l = new DataLoader("data");
-
 		//String datasets[] = SMALL_DATASETS;
-		String datasets[] = l.allDatasets();
+		String datasets[] = DataLoader.INSTANCE.allDatasets();
 		//		CFPType types[] = new CFPType[] { CFPType.ecfp6, CFPType.ecfp4, CFPType.ecfp2,
 		//				CFPType.ecfp0 };
 		//		CFPType types[] = new CFPType[] { CFPType.fcfp6, CFPType.fcfp4, CFPType.fcfp2,
@@ -110,7 +109,7 @@ public class NumFragmentsAndCollisions extends CreatePlots
 		for (final String name : datasets)
 		{
 			System.out.println(dCount + ": " + name);
-			CDKDataset data = l.getDataset(name);
+			CDKDataset data = DataLoader.INSTANCE.getDataset(name);
 
 			for (final CFPType type : CFPType.values())
 			{
@@ -179,7 +178,8 @@ public class NumFragmentsAndCollisions extends CreatePlots
 			//			if (dCount > 2)
 			//				break;
 		}
-		//		ResultSetIO.printToTxtFile(new File("data_collisions/collisions.result"), res, true);
+		//		ResultSetIO.printToTxtFile(new File(System.getProperty("user.home")
+		// + "/results/cdklib/data_collisions/collisions.result"), res, true);
 		System.exit(1);
 	}
 

@@ -10,7 +10,8 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Random;
 
-import org.kramerlab.cfpminer.CFPtoArff;
+import org.kramerlab.cfpminer.experiments.validation.PaperValidationResults;
+import org.kramerlab.cfpminer.weka.eval2.CFPtoArff;
 import org.mg.cdklib.CDKConverter;
 import org.mg.cdklib.cfp.CFPFragment;
 import org.mg.cdklib.cfp.CFPMiner;
@@ -32,7 +33,7 @@ import weka.core.Instances;
 import weka.core.SparseInstance;
 
 @SuppressWarnings("unchecked")
-public class ModelBuildingRuntimes
+public class ModelBuildingRuntimes extends PaperResults
 {
 
 	private static String getRuntimeKey(String datasetName, CFPType type,
@@ -43,7 +44,7 @@ public class ModelBuildingRuntimes
 	}
 
 	private static HashMap<String, Double> runtimes = new HashMap<String, Double>();
-	private static String runtimesFile = "/home/martin/workspace/CFPMiner/runtimes/runtimes.hash";
+	private static String runtimesFile = RESULTS + "/runtimes/runtimes.hash";
 
 	static
 	{
@@ -88,8 +89,7 @@ public class ModelBuildingRuntimes
 
 		//StopWatchUtil.start("all > load data");
 
-		DataLoader loader = new DataLoader("data");
-		CDKDataset dataset = loader.getDataset(datasetName);
+		CDKDataset dataset = DataLoader.INSTANCE.getDataset(datasetName);
 		List<String> list = dataset.getSmiles();
 		List<String> endpointValues = dataset.getEndpoints();
 		ListUtil.scramble(new Random(1), list, endpointValues);
@@ -188,8 +188,8 @@ public class ModelBuildingRuntimes
 
 	public static void estimateNextRuntime() throws Exception
 	{
-		String datasets[] = new DataLoader("data").allDatasetsSorted();
-		for (Integer size : CreatePlots.SIZES)
+		String datasets[] = DataLoader.INSTANCE.allDatasetsSorted();
+		for (Integer size : PaperValidationResults.SIZES)
 		{
 			for (String datasetName : datasets)
 			{
