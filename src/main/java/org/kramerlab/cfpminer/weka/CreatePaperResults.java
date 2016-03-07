@@ -25,7 +25,6 @@ import javax.swing.SwingConstants;
 
 import org.jfree.chart.ChartPanel;
 import org.jfree.chart.JFreeChart;
-import org.kramerlab.cfpminer.CFPTest;
 import org.mg.cdklib.cfp.CFPType;
 import org.mg.cdklib.cfp.FeatureSelection;
 import org.mg.cdklib.data.DataLoader;
@@ -70,7 +69,7 @@ public class CreatePaperResults
 
 		//		tableCollisions(false);
 		//ranking("", "AUP");
-		datasets();
+		//datasets();
 
 		//		read("ecfp4");
 		//		filter("AllOr1024", getFilter(null, null, 1024), getFilter(null, FeatureSelection.none, null));
@@ -102,8 +101,8 @@ public class CreatePaperResults
 			//					getFilter(CFPType.ecfp4, null, FeatureSelection.none, null));
 			//			addRuntimes();
 			//			lineChartFeatureSelection();
-			//			ValidationResultsProvider.setPerformanceMeasures(new String[] { "AUPRC" });
-			//			lineChartFeatureSelection();
+			//			//			ValidationResultsProvider.setPerformanceMeasures(new String[] { "AUPRC" });
+			//			//			lineChartFeatureSelection();
 		}
 
 		{
@@ -146,8 +145,8 @@ public class CreatePaperResults
 			//						 FeatureSelection - ECFP4 1024			
 			//			if (onlyPaper)
 			//			{
-			//				ValidationResultsProvider.setPerformanceMeasures(new String[] { "AUPRC" });
-			//				plotWinLossSizes();
+			ValidationResultsProvider.setPerformanceMeasures(new String[] { "AUPRC" });
+			plotWinLossSizes();
 			//			}
 			//			else
 			//			{
@@ -352,8 +351,8 @@ public class CreatePaperResults
 				CFPType t = type(r, i);
 				FeatureSelection f = feat(r, i);
 				Integer s = size(r, i);
-				double run = CFPTest.getRuntime(d, t, f, s == null ? 0 : s, a, true);
-				r.setResultValue(i, "Time", run);// 5 + new Random().nextDouble() * 20.0);
+				//double run = EstimateRuntimes.getRuntime(d, t, f, s == null ? 0 : s, a, true);
+				//r.setResultValue(i, "Time", run);// 5 + new Random().nextDouble() * 20.0);
 			}
 		}
 	}

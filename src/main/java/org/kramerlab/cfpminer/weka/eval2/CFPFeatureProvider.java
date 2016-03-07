@@ -3,17 +3,20 @@ package org.kramerlab.cfpminer.weka.eval2;
 import java.io.File;
 
 import org.kramerlab.cfpminer.CFPtoArff;
+import org.kramerlab.cfpminer.experiments.NumFragmentsAndCollisions;
 import org.mg.cdklib.cfp.CFPMiner;
 import org.mg.cdklib.cfp.CFPType;
 import org.mg.cdklib.cfp.FeatureSelection;
 import org.mg.cdklib.data.CDKDataset;
 import org.mg.wekalib.eval2.data.DataSet;
-import org.mg.wekalib.eval2.data.FoldDataSet;
 import org.mg.wekalib.eval2.data.WekaInstancesDataSet;
+import org.mg.wekalib.eval2.data.WrappedDataSet;
 import org.mg.wekalib.eval2.job.DefaultJobOwner;
 import org.mg.wekalib.eval2.job.FeatureProvider;
+import org.mg.wekalib.eval2.job.Printer;
 
 import weka.core.Instances;
+import weka.core.SparseInstance;
 
 public class CFPFeatureProvider extends DefaultJobOwner<DataSet[]> implements FeatureProvider
 {
@@ -28,6 +31,8 @@ public class CFPFeatureProvider extends DefaultJobOwner<DataSet[]> implements Fe
 		this.hashfoldSize = hashfoldSize;
 		this.featureSelection = featSelection;
 		this.type = type;
+		if (featureSelection == FeatureSelection.none && hashfoldSize != 0)
+			throw new IllegalArgumentException();
 	}
 
 	public String getName()
@@ -38,8 +43,11 @@ public class CFPFeatureProvider extends DefaultJobOwner<DataSet[]> implements Fe
 	@Override
 	public String getKeyPrefix()
 	{
-		return "CFP-" + hashfoldSize + '-' + featureSelection + '-' + type
-				+ (train != null ? (File.separator + train.getKeyPrefix()) : "");
+		String prefix = "";
+		if (train != null)
+			prefix += train.getKeyPrefix() + File.separator;
+		prefix += "CFP-" + hashfoldSize + '-' + featureSelection + '-' + type;
+		return prefix;
 	}
 
 	@Override
@@ -58,37 +66,55 @@ public class CFPFeatureProvider extends DefaultJobOwner<DataSet[]> implements Fe
 				try
 				{
 					DataSet trainX = train;
-					while (trainX instanceof FoldDataSet)
-						trainX = ((FoldDataSet) trainX).getSelf();
+					while (trainX instanceof WrappedDataSet)
+						trainX = ((WrappedDataSet) trainX).getSelf();
 					if (!(trainX instanceof CDKDataSet))
 						throw new IllegalArgumentException();
 					DataSet testX = test;
-					while (testX instanceof FoldDataSet)
-						testX = ((FoldDataSet) testX).getSelf();
-					if (!(testX instanceof CDKDataSet))
+					while (testX instanceof WrappedDataSet)
+						testX = ((WrappedDataSet) testX).getSelf();
+					if (test != null && !(testX instanceof CDKDataSet))
 						throw new IllegalArgumentException();
 					CDKDataset trainCDK = ((CDKDataSet) trainX).getCDKDataset();
-					CDKDataset testCDK = ((CDKDataSet) testX).getCDKDataset();
+					CDKDataset testCDK = null;
+					if (test != null)
+						testCDK = ((CDKDataSet) testX).getCDKDataset();
 
 					CFPMiner cfp = new CFPMiner(trainCDK.getEndpoints());
 					cfp.setFeatureSelection(featureSelection);
-					cfp.setHashfoldsize(hashfoldSize);
+					if (featureSelection != FeatureSelection.none)
+						cfp.setHashfoldsize(hashfoldSize);
 					cfp.setType(type);
 					cfp.mine(((CDKDataSet) trainX).getCDKDataset().getSmiles());
+					int num = cfp.getNumFragments();
 					if (featureSelection == FeatureSelection.filt)
 						cfp.applyFilter();
+					Printer.println(cfp.getNumFragments() + "/" + num + " fragments");
+
 					//					System.err.println(cfp.getSummary(false));
 					//					System.err.flush();
 					Instances trainI = CFPtoArff.getTrainingDataset(cfp, trainCDK.getDatasetName());
 					trainI.setRelationName(getKeyPrefix());
+					if (!(trainI.get(0) instanceof SparseInstance))
+						throw new IllegalStateException();
+
 					//					System.err.println(trainI);
-					Instances testI = CFPtoArff.getTestDataset(cfp, trainCDK.getDatasetName(),
-							testCDK.getSmiles(), testCDK.getEndpoints());
-					testI.setRelationName(getKeyPrefix());
+					Instances testI = null;
+					if (test != null)
+					{
+						testI = CFPtoArff.getTestDataset(cfp, trainCDK.getDatasetName(),
+								testCDK.getSmiles(), testCDK.getEndpoints());
+						testI.setRelationName(getKeyPrefix());
+						if (!(testI.get(0) instanceof SparseInstance))
+							throw new IllegalStateException();
+					}
+
 					//					System.err.println(testI);
 					setResult(new DataSet[] {
 							new WekaInstancesDataSet(trainI, trainX.getPositiveClass()),
-							new WekaInstancesDataSet(testI, trainX.getPositiveClass()) });
+							test != null
+									? new WekaInstancesDataSet(testI, trainX.getPositiveClass())
+									: null });
 				}
 				catch (Exception e)
 				{
@@ -96,6 +122,21 @@ public class CFPFeatureProvider extends DefaultJobOwner<DataSet[]> implements Fe
 				}
 			};
 		});
+	}
+
+	static NumFragmentsAndCollisions frags = new NumFragmentsAndCollisions();
+
+	@Override
+	public boolean isValid(DataSet dataSet)
+	{
+		if (getHashfoldSize() == 4096 && dataSet.getName().equals("CPDBAS_Mutagenicity")
+				&& getType() == CFPType.ecfp4)
+		{
+			// hack num is slightly > 4096, but not sufficient for internal validation
+			return false;
+		}
+		int n = frags.getNumFeatures(dataSet.getName(), getType());
+		return n > getHashfoldSize();
 	}
 
 	@Override

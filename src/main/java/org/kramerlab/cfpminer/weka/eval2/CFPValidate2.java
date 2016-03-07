@@ -9,7 +9,7 @@ import org.mg.cdklib.data.CDKDataset;
 import org.mg.cdklib.data.DataLoader;
 import org.mg.javalib.util.ListUtil;
 import org.mg.wekalib.eval2.CV;
-import org.mg.wekalib.eval2.CVEvaluator;
+import org.mg.wekalib.eval2.ValidationEval;
 import org.mg.wekalib.eval2.job.FeatureProvider;
 import org.mg.wekalib.eval2.job.JobOwner;
 import org.mg.wekalib.eval2.model.FeatureModel;
@@ -72,18 +72,20 @@ public class CFPValidate2
 			}
 		}
 
-		CVEvaluator cv = new CVEvaluator();
-		cv.setDataSet(data);
-		cv.setModels(ListUtil.toArray(featModels));
+		ValidationEval cvEval = new ValidationEval();
+		cvEval.setDataSet(data);
+		cvEval.setModels(ListUtil.toArray(featModels));
+		cvEval.setRepetitions(1);
+		CV cv = new CV();
 		cv.setNumFolds(10);
-		cv.setRepetitions(1);
+		cvEval.setValidation(cv);
 
 		//		CVEvalModel cvm = new CVEvalModel();
 		//		cvm.setCvEvaluator(cv);
 		//		cvm.setTrainingDataset(data);
 		//		cvm.setTestDataset(data);
 
-		return cv;
+		return cvEval;
 	}
 
 	private static String getHost(String pw)

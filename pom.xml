@@ -21,7 +21,7 @@
 		  <configuration>
 		    <archive>
 		      <manifest>
-		        <mainClass>org.kramerlab.cfpminer.weka.eval2.CFPNestedCV</mainClass>
+		        <mainClass>org.kramerlab.cfpminer.experiments.RunCV</mainClass>
 		      </manifest>
 			  <manifestEntries>
         	       <Permissions>all-permissions</Permissions>
@@ -30,6 +30,7 @@
 		    <descriptorRefs>
 		      <descriptorRef>jar-with-dependencies</descriptorRef>
 		    </descriptorRefs>
+		    <runOnlyAtExecutionRoot>true</runOnlyAtExecutionRoot>
 		  </configuration>
 		  <executions>
 		    <execution>

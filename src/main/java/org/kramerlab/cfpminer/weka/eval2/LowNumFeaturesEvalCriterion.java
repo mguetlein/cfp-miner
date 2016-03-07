@@ -8,8 +8,10 @@ import org.mg.javalib.datamining.Result;
 import org.mg.javalib.datamining.ResultSet;
 import org.mg.javalib.datamining.ResultSetFilter;
 import org.mg.javalib.util.ArrayUtil;
+import org.mg.javalib.util.ListUtil;
 import org.mg.wekalib.eval2.CV;
-import org.mg.wekalib.eval2.CVEvaluator.EvalCriterion;
+import org.mg.wekalib.eval2.Validation;
+import org.mg.wekalib.eval2.ValidationEval.EvalCriterion;
 import org.mg.wekalib.eval2.model.AbstractModel;
 import org.mg.wekalib.eval2.model.FeatureModel;
 import org.mg.wekalib.evaluation.PredictionUtil;
@@ -54,17 +56,23 @@ public class LowNumFeaturesEvalCriterion implements EvalCriterion
 	 * ---- tie-breaking: better performance
 	 */
 	@Override
-	public String selectBestModel(List<CV> cvs)
+	public String selectBestModel(List<Validation> cvs)
 	{
 		// collect results
 		ResultSet rs = new ResultSet();
-		for (CV cv : cvs)
+		for (Validation cv : cvs)
 		{
 			if (!cv.isDone())
 				throw new IllegalArgumentException("cv no yet done!");
 			else
 			{
-				for (Predictions p : PredictionUtil.perFold(cv.getResult()))
+				List<Predictions> ps;
+				if (cv instanceof CV)
+					ps = PredictionUtil.perFold(cv.getResult());
+				else
+					ps = ListUtil.createList(cv.getResult());
+
+				for (Predictions p : ps)
 				{
 					int idx = rs.addResult();
 					rs.setResultValue(idx, "ModelKey", cv.getModel().getKey());
@@ -75,20 +83,25 @@ public class LowNumFeaturesEvalCriterion implements EvalCriterion
 					rs.setResultValue(idx, "Fast",
 							((AbstractModel) ((FeatureModel) cv.getModel()).getModel()).isFast() ? 1
 									: 0);
-					rs.setResultValue(idx, "CVSeed", cv.getRandomSeed());
-					rs.setResultValue(idx, "CVFold", p.fold[0]);
+					rs.setResultValue(idx, "Seed", cv.getRandomSeed());
+					if (cv instanceof CV)
+						rs.setResultValue(idx, "Fold", p.fold[0]);
 					rs.setResultValue(idx, measure.toString(),
 							PredictionUtil.getClassificationMeasure(p, measure,
-									cv.getDataset().getPositiveClass()));
+									cv.getDataSet().getPositiveClass()));
 				}
 			}
 		}
 
 		// reduce to models with performance > max-performance - 0.005
 		double MAX_DEGREDATION = 0.005;
+		String ommit[] = new String[] { "Seed" };
+		if (cvs.get(0) instanceof CV)
+			ommit = ArrayUtil.push(ommit, "Fold");
 		ResultSet joined = rs.join(new String[] { "ModelKey", "ModelName", "Features", "Fast" },
-				new String[] { "CVSeed", "CVFold" }, null);
+				ommit, null);
 		joined.sortResults(measure.toString(), false, true, -1);
+		System.err.println(joined.toNiceString());
 		double max = (Double) joined.getResultValue(0, measure.toString());
 		final Set<String> accept = new HashSet<>();
 		for (int i = 0; i < joined.getNumResults(); i++)
@@ -107,11 +120,9 @@ public class LowNumFeaturesEvalCriterion implements EvalCriterion
 		// (sig-level 0.2 instead of (0.05 or 0.01), no correction-term)
 		double SIG_LEVEL_RELAXED = 0.2;
 		Double TEST_CORRECTION_RELAXED = null;
-		final ResultSet test = rs.pairedTTest_All("ModelKey",
-				ArrayUtil.toList(new String[] { "CVSeed", "CVFold" }), measure.toString(),
-				SIG_LEVEL_RELAXED, TEST_CORRECTION_RELAXED);
-		rs = rs.join(new String[] { "ModelKey", "ModelName", "Features", "Fast" },
-				new String[] { "CVSeed", "CVFold" }, null);
+		final ResultSet test = rs.pairedTTest_All("ModelKey", ArrayUtil.toList(ommit),
+				measure.toString(), SIG_LEVEL_RELAXED, TEST_CORRECTION_RELAXED);
+		rs = rs.join(new String[] { "ModelKey", "ModelName", "Features", "Fast" }, ommit, null);
 		//		System.err.println("\n#" + rs.getNumResults() + " dist to best < " + MAX_DEGREDATION + ":");
 		//		System.err.println(rs.toNiceString());
 		rs = rs.filter(new ResultSetFilter()
