@@ -31,10 +31,6 @@ import org.mg.wekalib.eval2.job.JobOwner;
 import org.mg.wekalib.eval2.model.FeatureModel;
 import org.mg.wekalib.eval2.model.Model;
 import org.mg.wekalib.eval2.model.ModelProvider;
-import org.mg.wekalib.eval2.model.NaiveBayesModel;
-import org.mg.wekalib.eval2.model.RandomForestModel;
-import org.mg.wekalib.eval2.persistance.DB;
-import org.mg.wekalib.eval2.persistance.ResultProviderImpl;
 import org.mg.wekalib.evaluation.PredictionUtil;
 import org.mg.wekalib.evaluation.PredictionUtil.ClassificationMeasure;
 import org.mg.wekalib.evaluation.PredictionUtilPlots;
@@ -540,78 +536,4 @@ public class CFPCrossValidation
 		return d;
 	}
 
-	public static void debug() throws Exception
-	{
-		DB.init(new ResultProviderImpl("/home/martin/tmp/jobs/store", "/home/martin/tmp/jobs/tmp"),
-				null);
-
-		//runModelBuildJob("1024,CPDBAS_Dog_Primates,");
-
-		//run(true, new String[] { "CPDBAS_Rat" }, null);
-
-		//		CFPNestedCV cv = new CFPNestedCV();
-		//		cv.datasets.remove("AMES");
-		//		cv.jobValidateModel().runSequentially();
-
-		//		printSelectedAlgorithms();
-
-		{
-			//			CFPNestedCV cv = new CFPNestedCV();
-			//			//cv.datasets.remove("AMES");
-			//			cv.datasets = ListUtil.createList("AMES");
-			//			cv.jobSelectModel().runSequentially();
-			//System.out.println(selectModelOverview().toNiceString());
-			//			//			cv.sizes = ListUtil.createList(8192);
-			//			//			cv.datasets = ListUtil.createList("ChEMBL_51");
-			//			cv.jobSelectModel().runSequentially();
-			//			for (String dataset : cv.datasets)
-			//			{
-			//				System.out.println(dataset);
-			//				System.out.println(cv.selectModelClassifier(dataset).getName());
-			//				System.out.println(cv.selectModelFeatures(dataset).getName());
-			//			}
-		}
-
-		{
-			//String dataset = "CPDBAS_Dog_Primates";
-			//String dataset = "DUD_vegfr2";
-			String dataset = "MUV_733";
-			//String dataset = "ChEMBL_61";
-			//String dataset = "AMES";
-
-			CFPCrossValidation cv = new CFPCrossValidation();
-
-			//			cv.numFolds = 4;
-			//			cv.numRepetitions = 5;
-			cv.sizes = ListUtil.createList(0);
-			cv.featureSelections = ListUtil.createList(FeatureSelection.none);
-			cv.datasets = ListUtil.createList(dataset);
-			cv.classifiers = ListUtil.create(Model.class, new NaiveBayesModel(),
-					new RandomForestModel());
-
-			//			cv.numSplitRepetitions = 5;
-			//			cv.splitRatio = 0.9;
-
-			cv.jobSelectModel().runSequentially();
-
-			//			ValidationEval val = (ValidationEval) cv.jobSelectModel().jobs().get(0);
-			//			System.out.println(val.getBestModel());
-
-			//			selectModelOverview();
-			//			System.out.println(cv.selectModelClassifier(dataset).getName());
-			//			System.out.println(cv.selectModelFeatures(dataset).getName());
-			//
-			//cv.jobValidateModel().runSequentially();
-			//			System.out.println(cv.validateModel(dataset).toNiceString());
-			//			cv.plotValidationResult(dataset, null);
-			//		cv.jobValidateModel().runSequentially();
-		}
-	}
-
-	public static void main(String[] args) throws Exception
-	{
-		//		Printer.PRINT_TO_SYSTEM_OUT = true;
-		//args = "-d DUD_vegfr2 -s 1024 -c 0,1".split(" ");
-		debug();
-	}
 }

@@ -16,6 +16,7 @@ import org.mg.javalib.util.ListUtil;
 import org.mg.javalib.util.SwingUtil;
 import org.mg.wekalib.eval2.job.Printer;
 import org.mg.wekalib.eval2.model.Model;
+import org.mg.wekalib.eval2.persistance.Blocker;
 import org.mg.wekalib.eval2.persistance.BlockerImpl;
 import org.mg.wekalib.eval2.persistance.DB;
 import org.mg.wekalib.eval2.persistance.ResultProviderImpl;
@@ -23,13 +24,16 @@ import org.mg.wekalib.evaluation.PredictionUtil.ClassificationMeasure;
 
 public class RunCV
 {
-	static void initDB(boolean blockEnabled, boolean outdirEnabled, String outfilePrefix)
+	static void initDB(boolean blockAndPrintEnabled, String outfilePrefix)
 	{
-		DB.init(new ResultProviderImpl(PaperResults.RESULTS + "/jobs/store",
-				PaperResults.RESULTS + "/jobs/tmp"),
-				blockEnabled ? new BlockerImpl(PaperResults.RESULTS + "/jobs/block") : null);
-		if (outdirEnabled)
+		Blocker blocker = null;
+		if (blockAndPrintEnabled)
+		{
+			blocker = new BlockerImpl(PaperResults.RESULTS + "/jobs/block");
 			Printer.setOutfile(PaperResults.RESULTS + "/jobs/out", outfilePrefix);
+		}
+		DB.init(new ResultProviderImpl(PaperResults.RESULTS + "/jobs/store",
+				PaperResults.RESULTS + "/jobs/tmp"), blocker);
 	}
 
 	public static void main(String[] args) throws Exception
@@ -46,14 +50,12 @@ public class RunCV
 			//			DB.init(new ResultProviderImpl("jobs/store", "jobs/tmp"), null);
 
 			//			args = ("-s 1024 -d NCTRER -o compareCFPs -f filt,none -t ecfp4 -r 1 -c 0").split(" ");
-
 			args = ("-s 8192 -d MUV_733 -o paramOptimize -v -f filt -t ecfp4 -r 1 -c 0,1")
 					.split(" ");
-			DB.init(new ResultProviderImpl("/tmp/jobs/store", "/tmp/jobs/tmp"), null);
 		}
 		else
 		{
-			initDB(true, true, ArrayUtil.toString(args, "_", "", "", "").replaceAll(",", "#"));
+			initDB(true, ArrayUtil.toString(args, "_", "", "", "").replaceAll(",", "#"));
 		}
 		Options opt = new Options();
 		opt.addOption("s", true, "sizes, comma seperated");

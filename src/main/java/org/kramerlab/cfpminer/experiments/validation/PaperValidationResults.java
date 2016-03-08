@@ -6,6 +6,6 @@ public class PaperValidationResults extends PaperResults
 {
 	public PaperValidationResults()
 	{
-		RunCV.initDB(false, false, null);
+		RunCV.initDB(false, null);
 	}
 }
