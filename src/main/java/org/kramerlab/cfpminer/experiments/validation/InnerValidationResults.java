@@ -128,7 +128,9 @@ public class InnerValidationResults extends PaperValidationResults
 		//		plotValidationResult("NCTRER", null);
 
 		WRITE_FILES = false;
-		new InnerValidationResults().printSelectedAndValidatedAlgorithms();
+		//new InnerValidationResults().printSelectedAndValidatedAlgorithms();
+		//		System.out.println(new InnerValidationResults().getValidationResults("NCTRER"));
+		System.out.println(new InnerValidationResults().getSelectedModel("NCTRER"));
 		System.exit(0);
 	}
 }

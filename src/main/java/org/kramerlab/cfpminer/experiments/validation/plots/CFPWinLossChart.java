@@ -19,6 +19,7 @@ import org.mg.javalib.freechart.WinLossBarChart;
 import org.mg.javalib.util.ArrayUtil;
 import org.mg.javalib.util.ListUtil;
 import org.mg.javalib.util.SwingUtil;
+import org.mg.wekalib.evaluation.PredictionUtil;
 import org.mg.wekalib.evaluation.PredictionUtil.ClassificationMeasure;
 
 public class CFPWinLossChart extends PaperValidationResults
@@ -306,7 +307,8 @@ public class CFPWinLossChart extends PaperValidationResults
 		//		System.exit(0);
 		WinLossBarChart chart = new WinLossBarChart(plot, winLossCmp, measure, cat1, cat2);
 
-		chart.setTitle("" + title + " (" + (fullPage ? "based on " : "") + "" + measure + ")");
+		chart.setTitle("" + title + " (" + (fullPage ? "based on " : "") + ""
+				+ PredictionUtil.ClassificationMeasure.valueOf(measure).shortName() + ")");
 		//		Dimension dim = new Dimension(fullPage ? 800 : 400, WinLossBarChart.SPACE_FOR_TITLE
 		//				+ WinLossBarChart.SPACE_FOR_LEGEND_AND_X_AXIS + 150 * chart.getNumSubPlots());
 		Dimension dim = new Dimension(fullPage ? 1200 : 600, WinLossBarChart.SPACE_FOR_TITLE

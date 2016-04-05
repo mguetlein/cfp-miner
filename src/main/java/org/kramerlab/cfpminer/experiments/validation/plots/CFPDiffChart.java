@@ -204,7 +204,7 @@ public class CFPDiffChart extends PaperValidationResults
 				Map<String, ChartPanel> map = new LinkedHashMap<String, ChartPanel>();
 
 				for (ClassificationMeasure measure : measures)
-					map.put(measure + " (\u0394)", diffChart(measure.toString(), f));
+					map.put(measure.shortName() + " (\u0394)", diffChart(measure.toString(), f));
 
 				map.put(RUNTIME + " (factor)", diffChart(RUNTIME, f));
 

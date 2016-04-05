@@ -5,6 +5,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 
+import org.kramerlab.cfpminer.experiments.validation.plots.CFPWinLossChart;
 import org.mg.cdklib.data.DataLoader;
 import org.mg.javalib.datamining.ResultSet;
 import org.mg.javalib.datamining.WekaResultSetUtil;
@@ -65,5 +66,17 @@ public class PaperResults
 			return ALG_ORDERING.get(m1) - ALG_ORDERING.get(m2);
 		}
 	};
+
+	public static void main(String[] args) throws Exception
+	{
+		SHOW_PLOTS = false;
+		WRITE_FILES = true;
+
+		//new CFPLineChart().create();
+		//new CFPDiffChart().create();
+		new CFPWinLossChart().plotWinLossFeatureSelection();
+		new CFPWinLossChart().plotWinLossECFPDiameter();
+		new CFPWinLossChart().plotWinLossECFPvsFCFP();
+	}
 
 }
