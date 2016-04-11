@@ -11,15 +11,11 @@ public interface CFPAppDomain
 
 	public void setCFPMiner(BasicCFPMiner miner);
 
-	public boolean isInsideAppdomain(String smiles);
+	public double getPThreshold(ADPrediction prediction);
 
-	public double pValue(String smiles);
+	public ADPrediction isInsideAppdomain(String smiles);
 
 	public double getDistance(String smiles);
-
-	public double getMeanTrainingDistance();
-
-	public double getMaxTrainingDistance();
 
 	public ChartPanel getPlot(String smiles);
 
@@ -38,10 +34,11 @@ public interface CFPAppDomain
 
 	public List<Neighbor> getNeighbors(String smiles);
 
-	public double getPValueThreshold();
-
 	public int getNumNeighbors();
 
 	public String getAveragingScheme();
 
+	public double getMeanTrainingDistance();
+
+	public double getCumulativeProbability(String smiles);
 }

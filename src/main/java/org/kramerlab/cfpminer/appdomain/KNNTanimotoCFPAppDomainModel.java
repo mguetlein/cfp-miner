@@ -1,5 +1,9 @@
 package org.kramerlab.cfpminer.appdomain;
 
+import java.awt.BasicStroke;
+import java.awt.Color;
+import java.awt.Font;
+import java.awt.FontMetrics;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -7,65 +11,68 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Random;
 
-import org.apache.commons.math3.stat.inference.TestUtils;
+import org.apache.commons.math3.distribution.NormalDistribution;
+import org.apache.commons.math3.stat.descriptive.DescriptiveStatistics;
 import org.jfree.chart.ChartPanel;
+import org.jfree.chart.JFreeChart;
+import org.jfree.chart.plot.ValueMarker;
+import org.jfree.chart.plot.XYPlot;
+import org.jfree.chart.renderer.xy.StandardXYBarPainter;
+import org.jfree.chart.renderer.xy.XYBarRenderer;
+import org.jfree.data.function.Function2D;
+import org.jfree.ui.RectangleAnchor;
+import org.jfree.ui.RectangleInsets;
 import org.mg.cdklib.cfp.BasicCFPMiner;
 import org.mg.cdklib.cfp.CFPFragment;
+import org.mg.cdklib.cfp.CFPMiner;
 import org.mg.cdklib.cfp.CFPType;
 import org.mg.cdklib.cfp.FeatureSelection;
-import org.mg.javalib.util.ArrayUtil;
-import org.mg.javalib.util.Binning;
+import org.mg.cdklib.data.DataLoader;
+import org.mg.javalib.freechart.HistogramPanel;
 import org.mg.javalib.util.DoubleArraySummary;
 import org.mg.javalib.util.ListUtil;
 import org.mg.javalib.util.SetUtil;
 import org.mg.javalib.util.SortedList;
-import org.mg.javalib.util.StringUtil;
 import org.mg.javalib.util.SwingUtil;
 import org.openscience.cdk.exception.CDKException;
 
 public class KNNTanimotoCFPAppDomainModel implements CFPAppDomain, Serializable
 {
-	private static final long serialVersionUID = 10L;
+	private static final long serialVersionUID = 11L;
 
 	// ------- params ------- 
 
 	protected int k = 3;
 
-	protected double minP = 0.001;
+	protected double pOutside = 0.99;
+
+	protected double pPossiblyOutside = 0.95;
 
 	/** if false -> use median instead of mean to average */
 	protected boolean mean = true;
 
 	// ------- member variables ------- 
 
-	protected double meanTrainingDistance;
-
-	protected double maxTrainingDistance;
-
-	protected Binning binning;
+	protected double[] trainingDistances;
 
 	// ------- transient member variables ------- 
 
 	protected transient BasicCFPMiner miner;
 
-	public KNNTanimotoCFPAppDomainModel(int k, double minP, boolean mean)
+	public KNNTanimotoCFPAppDomainModel(int k, boolean mean)
 	{
 		this.k = k;
-		this.minP = minP;
 		this.mean = mean;
 	}
 
 	@Override
 	public void build()
 	{
-		List<Double> knnTrainingDistances = new ArrayList<>();
+		trainingDistances = new double[miner.getNumCompounds()];
 		for (int compound = 0; compound < miner.getNumCompounds(); compound++)
-			knnTrainingDistances.add(computeKnnDist(compound));
-		DoubleArraySummary stats = DoubleArraySummary.create(knnTrainingDistances);
-		meanTrainingDistance = stats.getMean();
-		maxTrainingDistance = stats.getMax();
-		binning = new Binning(ArrayUtil.toPrimitiveDoubleArray(knnTrainingDistances), 10, false);
+			trainingDistances[compound] = computeKnnDist(compound);
 	}
 
 	@Override
@@ -75,27 +82,9 @@ public class KNNTanimotoCFPAppDomainModel implements CFPAppDomain, Serializable
 	}
 
 	@Override
-	public double getPValueThreshold()
-	{
-		return minP;
-	}
-
-	@Override
 	public double getDistance(String smiles)
 	{
 		return computeKnnDist(smiles);
-	}
-
-	@Override
-	public double getMeanTrainingDistance()
-	{
-		return meanTrainingDistance;
-	}
-
-	@Override
-	public double getMaxTrainingDistance()
-	{
-		return maxTrainingDistance;
 	}
 
 	@Override
@@ -110,42 +99,53 @@ public class KNNTanimotoCFPAppDomainModel implements CFPAppDomain, Serializable
 		return k;
 	}
 
-	@Override
-	public final boolean isInsideAppdomain(String smiles)
+	protected transient DescriptiveStatistics stats;
+
+	protected DescriptiveStatistics getStats()
 	{
-		return pValue(smiles) > getPValueThreshold();
+		if (stats == null)
+			stats = new DescriptiveStatistics(trainingDistances);
+		return stats;
 	}
 
-	protected transient HashMap<String, Double> cachedPValues;
+	@Override
+	public double getCumulativeProbability(String smiles)
+	{
+		return new NormalDistribution(getStats().getMean(), getStats().getStandardDeviation())
+				.cumulativeProbability(getDistance(smiles));
+	}
 
 	@Override
-	public final double pValue(String smiles)
+	public final ADPrediction isInsideAppdomain(String smiles)
 	{
-		if (cachedPValues == null)
-			cachedPValues = new HashMap<>();
-		if (!cachedPValues.containsKey(smiles))
+		double p = getCumulativeProbability(smiles);
+
+		if (p > pOutside)
+			return ADPrediction.Outside;
+		else if (p > pPossiblyOutside)
+			return ADPrediction.PossiblyOutside;
+		else
+			return ADPrediction.Inside;
+	}
+
+	@Override
+	public double getMeanTrainingDistance()
+	{
+		return getStats().getMean();
+	}
+
+	@Override
+	public double getPThreshold(ADPrediction prediction)
+	{
+		switch (prediction)
 		{
-			double dist = computeKnnDist(smiles);
-			double p;
-			if (dist <= meanTrainingDistance)
-				p = 1.0;
-			else if (dist > maxTrainingDistance)
-				p = 0.0;
-			else
-			{
-				long all[] = binning.getAllCounts();
-				long selected[] = binning.getSelectedCounts(dist);
-				p = TestUtils.chiSquareTestDataSetsComparison(selected, all);
-			}
-			System.out.println(p);
-			if (p < minP)
-			{
-				//				System.out.println("distance: " + dist);
-				//				SwingUtil.showInFrame(binning.plot(dist), dist + " : " + p, false);
-			}
-			cachedPValues.put(smiles, p);
+			case Outside:
+				return pOutside;
+			case PossiblyOutside:
+			case Inside:
+				return pPossiblyOutside;
 		}
-		return cachedPValues.get(smiles);
+		throw new IllegalStateException();
 	}
 
 	private double computeKnnDist(String smiles)
@@ -214,14 +214,86 @@ public class KNNTanimotoCFPAppDomainModel implements CFPAppDomain, Serializable
 	@Override
 	public ChartPanel getPlot(String smiles)
 	{
-		ChartPanel p;
-		if (smiles == null)
-			p = binning.plot();
-		else
-			p = binning.plot(computeKnnDist(smiles));
-		p.getChart().getXYPlot().getRangeAxis().setLabel("# training compounds");
-		p.getChart().getXYPlot().getDomainAxis().setLabel("distance");
-		return p;
+		HistogramPanel p = new HistogramPanel("", null, "distance", "# training compounds",
+				ListUtil.createList("distance of training compounds"),
+				ListUtil.createList(trainingDistances), 20);
+
+		JFreeChart chart = p.getChart();
+		XYPlot plot = (XYPlot) chart.getPlot();
+
+		//		chart.removeLegend();
+		plot.setBackgroundPaint(Color.WHITE);
+		plot.setRangeGridlinePaint(Color.GRAY);
+		plot.setDomainGridlinePaint(Color.GRAY);
+		chart.setBackgroundPaint(new Color(0, 0, 0, 0));
+
+		XYBarRenderer render = new XYBarRenderer();
+		render.setShadowVisible(false);
+		StandardXYBarPainter painter = new StandardXYBarPainter();
+		render.setBarPainter(painter);
+		render.setSeriesPaint(0, new Color(0, 0, 0, 0));
+		render.setDrawBarOutline(true);
+		render.setSeriesOutlinePaint(0, Color.BLACK);
+		plot.setRenderer(render);
+
+		Color col = Color.CYAN.darker().darker();
+		Color fontCol = col.darker().darker();
+
+		final NormalDistribution dist = new NormalDistribution(getStats().getMean(),
+				getStats().getStandardDeviation());
+		Function2D func = new Function2D()
+		{
+			@Override
+			public double getValue(double x)
+			{
+				return dist.cumulativeProbability(x);
+			}
+		};
+		p.addFunction("Cumulative Probability P(X \u2264 x)", func, col);
+
+		plot.getRangeAxis(1).setRange(0, plot.getRangeAxis(1).getRange().getUpperBound() * 1.1);
+
+		double val = dist.inverseCumulativeProbability(0.99);
+		addMarker(p, val, fontCol, true, "P>0.99", false, 0);
+		addMarker(p, val, fontCol, false, "\u21d2 Outside", false, 1);
+		val = dist.inverseCumulativeProbability(0.95);
+		addMarker(p, val, fontCol, true, "P\u22640.95", true, 0);
+		addMarker(p, val, fontCol, false, "\u21d2 Inside", true, 1);
+
+		if (smiles != null)
+		{
+			val = computeKnnDist(smiles);
+			addMarker(p, val, Color.RED, true, null, false, -1);
+		}
+		return p.getChartPanel();
+
+	}
+
+	private void addMarker(HistogramPanel p, double val, Color col, boolean drawLine, String msg,
+			boolean left, int row)
+	{
+		XYPlot plot = (XYPlot) p.getChart().getPlot();
+		Font f = plot.getDomainAxis().getTickLabelFont();
+		FontMetrics fm = p.getFontMetrics(f);
+
+		ValueMarker marker = new ValueMarker(val);
+		if (msg != null)
+		{
+			marker.setLabel(msg);
+			marker.setLabelFont(f);
+			marker.setLabelPaint(col);
+			marker.setLabelAnchor(left ? RectangleAnchor.TOP_LEFT : RectangleAnchor.TOP_RIGHT);
+			double offset = 5 + fm.stringWidth(msg) * 0.5;
+			marker.setLabelOffset(
+					new RectangleInsets(15 + row * 15, left ? offset : 0, 0, left ? 0 : offset));
+		}
+		if (drawLine)
+		{
+			marker.setPaint(col);
+			marker.setStroke(new BasicStroke(2.0F));
+		}
+
+		plot.addDomainMarker(marker);
 	}
 
 	@Override
@@ -252,26 +324,50 @@ public class KNNTanimotoCFPAppDomainModel implements CFPAppDomain, Serializable
 
 	public static void main(String[] args) throws Exception
 	{
-		List<String> smilesList = ListUtil.createList("c1ccccc1", "c1cccnc1", "c1cccnc1", "CCC",
-				"CCCC=O", "CCCCCCC", "Br", "Cl", "CCCC");
-		BasicCFPMiner miner = new BasicCFPMiner();
+		//		List<String> smilesList = ListUtil.createList("c1ccccc1", "c1cccnc1", "c1cccnc1", "CCC",
+		//				"CCCC=O", "CCCCCCC", "Br", "Cl", "CCCC");
+		List<String> smilesList = DataLoader.INSTANCE.getDataset("CPDBAS_Mouse").getSmiles();
+		List<String> endpoints = DataLoader.INSTANCE.getDataset("CPDBAS_Mouse").getEndpoints();
+		ListUtil.scramble(new Random(1), smilesList, endpoints);
+
+		System.out.println(smilesList.get(332));
+
+		//		BasicCFPMiner miner = new BasicCFPMiner();
+		CFPMiner miner = new CFPMiner(endpoints);
+
 		miner.setType(CFPType.ecfp4);
-		miner.setFeatureSelection(FeatureSelection.none);
+		miner.setHashfoldsize(2048);
+		miner.setFeatureSelection(FeatureSelection.filt);
 		miner.mine(smilesList);
 		System.out.println(miner);
 
-		CFPAppDomain ad = new KNNTanimotoCFPAppDomainModel(3, 0.001, true);
+		miner.applyFilter();
+
+		KNNTanimotoCFPAppDomainModel ad = new KNNTanimotoCFPAppDomainModel(3, true);
 		ad.setCFPMiner(miner);
+
+		String smiles = "CC=C";
+		{
+			System.out.println(ad.distance(miner.getFragmentsForTestCompound(smiles), 332));
+			System.exit(0);
+		}
+
 		ad.build();
 
-		System.out.println("threshold: " + ad.getPValueThreshold() + " nice: "
-				+ StringUtil.formatSmallDoubles(ad.getPValueThreshold()));
+		//		System.out.println("threshold: " + ad.getPValueThreshold() + " nice: "
+		//				+ StringUtil.formatSmallDoubles(ad.getPValueThreshold()));
 
-		String smiles = "CCCCC";
 		List<CFPAppDomain.Neighbor> l = ad.getNeighbors(smiles);
+		int i = 0;
 		for (Neighbor n : l)
+		{
 			System.out.println(n.distance + " " + n.smiles);
-		SwingUtil.showInDialog(ad.getPlot(smiles));
+			i++;
+			if (i >= 10)
+				break;
+		}
+		SwingUtil.showInFrame(ad.getPlot(smiles));
+		SwingUtil.waitWhileWindowsVisible();
+		System.exit(0);
 	}
-
 }
