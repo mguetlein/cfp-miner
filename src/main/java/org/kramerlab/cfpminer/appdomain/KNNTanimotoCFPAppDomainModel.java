@@ -214,8 +214,8 @@ public class KNNTanimotoCFPAppDomainModel implements CFPAppDomain, Serializable
 	@Override
 	public ChartPanel getPlot(String smiles)
 	{
-		HistogramPanel p = new HistogramPanel("", null, "distance", "# training compounds",
-				ListUtil.createList("distance of training compounds"),
+		HistogramPanel p = new HistogramPanel("", null, "Distance", "# Training compounds",
+				ListUtil.createList("Distance of training compounds"),
 				ListUtil.createList(trainingDistances), 20);
 
 		JFreeChart chart = p.getChart();
@@ -249,7 +249,7 @@ public class KNNTanimotoCFPAppDomainModel implements CFPAppDomain, Serializable
 				return dist.cumulativeProbability(x);
 			}
 		};
-		p.addFunction("Cumulative Probability P(X \u2264 x)", func, col);
+		p.addFunction("Cumulative probability P(X \u2264 x)", func, col);
 
 		plot.getRangeAxis(1).setRange(0, plot.getRangeAxis(1).getRange().getUpperBound() * 1.1);
 
