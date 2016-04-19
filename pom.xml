@@ -2,7 +2,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>org.kramerlab.cfpminer</groupId>
   <artifactId>cfp-miner</artifactId>
-  <version>0.0.1-SNAPSHOT</version>
+  <version>1.0.0</version>
   <name>cfp-miner</name>
   
 <build>
@@ -54,20 +54,20 @@
   
   
     <repositories>
-    <repository>
+    <repository> 
       <id>ebi-repo</id>
       <url>http://www.ebi.ac.uk/intact/maven/nexus/content/repositories/ebi-repo/</url>
       <snapshots>
 	<enabled>false</enabled>
-      </snapshots>
+      </snapshots> 
     </repository>
-    <repository>
+    <!-- <repository>
       <id>ebi-repo-snapshots</id>
       <url>http://www.ebi.ac.uk/intact/maven/nexus/content/repositories/ebi-repo-snapshots/</url>
       <releases>
 	<enabled>false</enabled>
       </releases>
-    </repository>
+    </repository> -->
     <repository>
         <id>jgu</id>
         <name>jgu-internal</name>
@@ -101,21 +101,21 @@
          <dependency>
     	<groupId>org.mg.javalib</groupId>
     	<artifactId>JavaLib</artifactId>
-    	<version>3.0.0-SNAPSHOT</version>
+    	<version>3.0.0</version>
     </dependency>
 
     
      <dependency>
         <groupId>org.mg.wekalib</groupId>
         <artifactId>weka-lib</artifactId>
-        <version>0.1.0-SNAPSHOT</version>
+        <version>1.0.0</version>
     </dependency>  
 
 
      <dependency>
         <groupId>org.mg.cdklib</groupId>
         <artifactId>cdk-lib</artifactId>
-        <version>0.0.1-SNAPSHOT</version>
+        <version>1.0.0</version>
     </dependency>  
 
 
