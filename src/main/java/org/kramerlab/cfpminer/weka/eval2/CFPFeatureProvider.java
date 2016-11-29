@@ -68,7 +68,8 @@ public class CFPFeatureProvider extends DefaultJobOwner<DataSet[]> implements Fe
 					while (trainX instanceof WrappedDataSet)
 						trainX = ((WrappedDataSet) trainX).getSelf();
 					if (!(trainX instanceof CDKDataSet))
-						throw new IllegalArgumentException();
+						throw new IllegalArgumentException(
+								"dataset is no cdk-dataset: " + trainX.getClass());
 					DataSet testX = test;
 					while (testX instanceof WrappedDataSet)
 						testX = ((WrappedDataSet) testX).getSelf();
@@ -154,6 +155,12 @@ public class CFPFeatureProvider extends DefaultJobOwner<DataSet[]> implements Fe
 	public DataSet getTrainingDataset()
 	{
 		return train;
+	}
+
+	@Override
+	public DataSet getTestDataset()
+	{
+		return test;
 	}
 
 	public int getHashfoldSize()

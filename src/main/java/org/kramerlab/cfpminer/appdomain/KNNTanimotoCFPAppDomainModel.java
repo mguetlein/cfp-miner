@@ -11,7 +11,6 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Random;
 
 import org.apache.commons.math3.distribution.NormalDistribution;
 import org.apache.commons.math3.stat.descriptive.DescriptiveStatistics;
@@ -26,10 +25,6 @@ import org.jfree.ui.RectangleAnchor;
 import org.jfree.ui.RectangleInsets;
 import org.mg.cdklib.cfp.BasicCFPMiner;
 import org.mg.cdklib.cfp.CFPFragment;
-import org.mg.cdklib.cfp.CFPMiner;
-import org.mg.cdklib.cfp.CFPType;
-import org.mg.cdklib.cfp.FeatureSelection;
-import org.mg.cdklib.data.DataLoader;
 import org.mg.javalib.freechart.HistogramPanel;
 import org.mg.javalib.util.DoubleArraySummary;
 import org.mg.javalib.util.ListUtil;
@@ -37,7 +32,6 @@ import org.mg.javalib.util.ResourceBundleOwner;
 import org.mg.javalib.util.SetUtil;
 import org.mg.javalib.util.SortedList;
 import org.mg.javalib.util.StringUtil;
-import org.mg.javalib.util.SwingUtil;
 import org.openscience.cdk.exception.CDKException;
 
 public class KNNTanimotoCFPAppDomainModel implements ADInfoModel, Serializable
@@ -76,7 +70,11 @@ public class KNNTanimotoCFPAppDomainModel implements ADInfoModel, Serializable
 	{
 		trainingDistances = new double[miner.getNumCompounds()];
 		for (int compound = 0; compound < miner.getNumCompounds(); compound++)
+		{
+			if (compound % 500 == 0)
+				System.out.println("building ad " + compound);
 			trainingDistances[compound] = computeKnnDist(compound);
+		}
 	}
 
 	@Override
@@ -89,6 +87,16 @@ public class KNNTanimotoCFPAppDomainModel implements ADInfoModel, Serializable
 	public double getDistance(String smiles)
 	{
 		return computeKnnDist(smiles);
+	}
+
+	@Override
+	public double getDistanceWithoutIdenticalSmiles(String smiles)
+	{
+		int idx = miner.getTrainingDataSmiles().indexOf(smiles);
+		if (idx == -1)
+			return computeKnnDist(smiles);
+		else
+			return computeKnnDist(idx);
 	}
 
 	protected transient DescriptiveStatistics stats;
@@ -273,9 +281,25 @@ public class KNNTanimotoCFPAppDomainModel implements ADInfoModel, Serializable
 	@Override
 	public ChartPanel getPlot(String smiles)
 	{
-		HistogramPanel p = new HistogramPanel("", null, "Distance", "# Training compounds",
-				ListUtil.createList("Distance of training compounds"),
-				ListUtil.createList(trainingDistances), 20);
+		return getPlot(smiles == null ? null : new String[] { smiles });
+	}
+
+	public ChartPanel getPlot(String... smiles)
+	{
+		List<String> labels = ListUtil.createList("Distance of training compounds");
+		List<double[]> vals = ListUtil.createList(trainingDistances);
+
+		if (smiles != null && smiles.length > 1)
+		{
+			double[] values = new double[smiles.length];
+			for (int i = 0; i < values.length; i++)
+				values[i] = computeKnnDist(smiles[i]);
+			labels.add(0, "Test compounds");
+			vals.add(0, values);
+		}
+
+		HistogramPanel p = new HistogramPanel("", null, "Distance", "# Training compounds", labels,
+				vals, 20);
 
 		JFreeChart chart = p.getChart();
 		XYPlot plot = (XYPlot) chart.getPlot();
@@ -293,6 +317,11 @@ public class KNNTanimotoCFPAppDomainModel implements ADInfoModel, Serializable
 		render.setSeriesPaint(0, new Color(0, 0, 0, 0));
 		render.setDrawBarOutline(true);
 		render.setSeriesOutlinePaint(0, Color.BLACK);
+		if (smiles != null && smiles.length > 1)
+		{
+			render.setSeriesPaint(1, new Color(100, 0, 0, 50));
+			render.setSeriesOutlinePaint(1, new Color(255, 0, 0, 255));
+		}
 		plot.setRenderer(render);
 
 		Color probCol = new Color(0, 139, 139);
@@ -318,9 +347,10 @@ public class KNNTanimotoCFPAppDomainModel implements ADInfoModel, Serializable
 		addMarker(p, val, probCol, true, "P\u22640.95", true, 0);
 		addMarker(p, val, probCol, false, "\u21d2 Inside", true, 1);
 
-		if (smiles != null)
+		if (smiles != null && smiles.length == 1)
 		{
-			val = computeKnnDist(smiles);
+			String smi = smiles[0];
+			val = computeKnnDist(smi);
 			addMarker(p, val, Color.RED, true, null, false, -1);
 			if (val >= plot.getDomainAxis().getRange().getUpperBound())
 				plot.getDomainAxis().setRange(plot.getDomainAxis().getRange().getLowerBound(),
@@ -365,59 +395,93 @@ public class KNNTanimotoCFPAppDomainModel implements ADInfoModel, Serializable
 
 	public static void main(String[] args) throws Exception
 	{
-		System.out.println(new KNNTanimotoCFPAppDomainModel(3, true).getDocumentation()
-				.replaceAll("<br>", "\n"));
-		System.exit(0);
+		String modelIds[] = { "AMES", "CPDBAS_Mouse", "NCTRER", "ChEMBL_93", "MUV_733",
+				"ChEMBL_100", "MUV_644", "DUD_vegfr2" };
+		List<String> smiles = ListUtil.createList("c1ccccc1", "c1cccnc1", "c1cccnc1", "CCC",
+				"CCCC=O", "CCCCCCC", "Br", "Cl", "CCCC");
 
-		//		List<String> smilesList = ListUtil.createList("c1ccccc1", "c1cccnc1", "c1cccnc1", "CCC",
-		//				"CCCC=O", "CCCCCCC", "Br", "Cl", "CCCC");
-		List<String> smilesList = DataLoader.INSTANCE.getDataset("CPDBAS_Mouse").getSmiles();
-		List<String> endpoints = DataLoader.INSTANCE.getDataset("CPDBAS_Mouse").getEndpoints();
-		ListUtil.scramble(new Random(1), smilesList, endpoints);
-
-		//		System.out.println(smilesList.get(332));
-
-		//		BasicCFPMiner miner = new BasicCFPMiner();
-		CFPMiner miner = new CFPMiner(endpoints);
-
-		miner.setType(CFPType.ecfp4);
-		miner.setHashfoldsize(2048);
-		miner.setFeatureSelection(FeatureSelection.filt);
-		miner.mine(smilesList);
-		System.out.println(miner);
-
-		miner.applyFilter();
-
-		KNNTanimotoCFPAppDomainModel ad = new KNNTanimotoCFPAppDomainModel(3, true);
-
-		//		System.out.println(ad.getGeneralInfo(false));
-		//		System.exit(1);
-
-		ad.setCFPMiner(miner);
-
-		String smiles = "CC=C";
+		//		for (String data : modelIds)
 		//		{
-		//			System.out.println(ad.distance(miner.getFragmentsForTestCompound(smiles), 332));
-		//			System.exit(0);
+		//			String cfpFile = "/home/martin/results/coffer/persistance/model/" + data + ".cfp";
+		//			FSTObjectInput in = new FSTObjectInput(new FileInputStream(cfpFile));
+		//			CFPMiner c = (CFPMiner) in.readObject();
+		//			in.close();
+		//			String adFile = "/home/martin/results/coffer/persistance/model/" + data + ".appdomain";
+		//			in = new FSTObjectInput(new FileInputStream(adFile));
+		//			KNNTanimotoCFPAppDomainModel ad = (KNNTanimotoCFPAppDomainModel) in.readObject();
+		//			in.close();
+		//
+		//			ad.setCFPMiner(c);
+		//
+		//			for (String smi : smiles)
+		//			{
+		//				StopWatchUtil.start("predict-ad");
+		//				System.out.println(smi + " " + ad.isInsideAppdomain(smi));
+		//				StopWatchUtil.stop("predict-ad");
+		//			}
+		//			StopWatchUtil.print();
 		//		}
+		//
+		//		CDKDataset d2 = DataLoader.getDatasetFromSMILES("mastermatrix",
+		//				"/home/martin/data/envipath/mastermatrix.ob.smi");
+		//		CDKDataset d = DataLoader.getDatasetFromSMILES("kegg",
+		//				"/home/martin/data/envipath/KEGG_matrix_100316.ob.smi");
+		//
+		//		//CDKDataset d = DataLoader.INSTANCE.getDataset("CPDBAS_Mouse");
+		//
+		//		List<String> smilesList = d.getSmiles();
+		//		List<String> endpoints = d.getEndpoints();
+		//		ListUtil.scramble(new Random(1), smilesList, endpoints);
+		//
+		//		//		System.out.println(smilesList.get(332));
+		//
+		//		//		BasicCFPMiner miner = new BasicCFPMiner();
+		//		CFPMiner miner = new CFPMiner(endpoints);
+		//
+		//		miner.setType(CFPType.ecfp4);
+		//		miner.setHashfoldsize(2048);
+		//		miner.setFeatureSelection(FeatureSelection.none);
+		//		miner.mine(smilesList);
+		//		System.out.println(miner);
+		//
+		//		//miner.applyFilter();
+		//
+		//		KNNTanimotoCFPAppDomainModel ad = new KNNTanimotoCFPAppDomainModel(3, true);
+		//
+		//		//		System.out.println(ad.getGeneralInfo(false));
+		//		//		System.exit(1);
+		//
+		//		ad.setCFPMiner(miner);
+		//
+		//		//		String smiles = "CC=C";
+		//		//		{
+		//		//			System.out.println(ad.distance(miner.getFragmentsForTestCompound(smiles), 332));
+		//		//			System.exit(0);
+		//		//		}
+		//
+		//		ad.build();
+		//
+		//		//		System.out.println("threshold: " + ad.getPValueThreshold() + " nice: "
+		//		//				+ StringUtil.formatSmallDoubles(ad.getPValueThreshold()));
+		//
+		//		//		List<ADNeighbor> l = ad.getNeighbors(smiles);
+		//		//		int i = 0;
+		//		//		for (ADNeighbor n : l)
+		//		//		{
+		//		//			System.out.println(n.getDistance() + " " + n.getSmiles());
+		//		//			i++;
+		//		//			if (i >= 3)
+		//		//				break;
+		//		//		}
+		//
+		//		SwingUtil.showInFrame(ad.getPlot(ArrayUtil.toArray(d2.getSmiles())));
+		//		SwingUtil.waitWhileWindowsVisible();
+		//		System.exit(0);
 
-		ad.build();
+	}
 
-		//		System.out.println("threshold: " + ad.getPValueThreshold() + " nice: "
-		//				+ StringUtil.formatSmallDoubles(ad.getPValueThreshold()));
-
-		List<ADNeighbor> l = ad.getNeighbors(smiles);
-		int i = 0;
-		for (ADNeighbor n : l)
-		{
-			System.out.println(n.getDistance() + " " + n.getSmiles());
-			i++;
-			if (i >= 3)
-				break;
-		}
-		//		SwingUtil.showInFrame(ad.getPlot(smiles));
-		SwingUtil.waitWhileWindowsVisible();
-		System.exit(0);
-
+	public BasicCFPMiner getCFPMiner()
+	{
+		return miner;
 	}
 }

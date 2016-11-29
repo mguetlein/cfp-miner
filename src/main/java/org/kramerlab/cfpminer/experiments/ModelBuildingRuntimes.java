@@ -5,6 +5,7 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -19,14 +20,16 @@ import org.mg.cdklib.cfp.CFPType;
 import org.mg.cdklib.cfp.FeatureSelection;
 import org.mg.cdklib.data.CDKDataset;
 import org.mg.cdklib.data.DataLoader;
+import org.mg.javalib.util.DoubleArraySummary;
 import org.mg.javalib.util.ListUtil;
 import org.mg.javalib.util.StopWatchUtil;
 import org.mg.wekalib.eval2.model.AbstractModel;
 import org.mg.wekalib.eval2.model.Model;
 import org.mg.wekalib.eval2.model.ModelProvider;
+import org.mg.wekalib.eval2.model.RandomForestModel;
 
 import weka.classifiers.Classifier;
-import weka.classifiers.functions.SMO;
+import weka.classifiers.functions.SMO_ridgeAdjustable;
 import weka.core.DenseInstance;
 import weka.core.Instance;
 import weka.core.Instances;
@@ -55,7 +58,8 @@ public class ModelBuildingRuntimes extends PaperResults
 				ObjectInputStream ois = new ObjectInputStream(new FileInputStream(runtimesFile));
 				runtimes = (HashMap<String, Double>) ois.readObject();
 				ois.close();
-				System.out.println("runtime file loaded with " + runtimes.size() + " entries");
+				System.out.println("runtime file loaded with " + runtimes.size() + " entries "
+						+ new File(runtimesFile).getAbsolutePath());
 			}
 			else
 				runtimes = new HashMap<>();
@@ -85,7 +89,7 @@ public class ModelBuildingRuntimes extends PaperResults
 	{
 		System.out.println("start " + datasetName + " " + type + " " + featureSelection + " "
 				+ hashfoldsize + " " + classifier);
-				//StopWatchUtil.start("all");
+		//StopWatchUtil.start("all");
 
 		//StopWatchUtil.start("all > load data");
 
@@ -106,11 +110,19 @@ public class ModelBuildingRuntimes extends PaperResults
 		cfps.setHashfoldsize(hashfoldsize);
 		cfps.mine(list);
 
+		//		long startFilter = StopWatchUtil.getCpuTime();
+		//		long mineTime = startFilter - start;
+		//		System.err.println("mine " + mineTime / 1000.0);
+
 		//StopWatchUtil.stop("all > create > mine");
 
 		//StopWatchUtil.start("all > create > filter");
 		if (featureSelection == FeatureSelection.filt)
 			cfps.applyFilter();
+
+		//		long filterTime = StopWatchUtil.getCpuTime() - startFilter;
+		//		System.err.println("filter " + filterTime / 1000.0);
+
 		//StopWatchUtil.stop("all > create > filter");
 
 		//StopWatchUtil.start("all > create > build model");
@@ -150,7 +162,7 @@ public class ModelBuildingRuntimes extends PaperResults
 			for (int i = 0; i < vals.length - 1; i++)
 				vals[i] = set.contains(cfps.getFragmentViaIdx(i)) ? 1.0 : 0.0;
 			Instance testInst;
-			if (classi instanceof SMO)
+			if (classi instanceof SMO_ridgeAdjustable)
 				testInst = new SparseInstance(1.0, vals);
 			else
 				testInst = new DenseInstance(1.0, vals);
@@ -237,15 +249,31 @@ public class ModelBuildingRuntimes extends PaperResults
 		//		oos.flush();
 		//		oos.close();
 
-		estimateNextRuntime();
+		//estimateNextRuntime();
 
 		//		//		//demo();
+		List<Double> filtBuildTime = new ArrayList<Double>();
+		List<Double> foldBuildTime = new ArrayList<Double>();
+		List<Double> filterTime = new ArrayList<Double>();
 		//		String datasetName = "AMES";
-		//		CFPType type = CFPType.ecfp4;
-		//		FeatureSelection featureSelection = FeatureSelection.none;
-		//		int hashfoldsize = 1024;
-		//		String classifier = "RaF";
-		//		//
+		for (String datasetName : DataLoader.INSTANCE.allDatasetsSorted())
+		{
+			System.out.println(datasetName);
+			CFPType type = CFPType.ecfp4;
+			int hashfoldsize = 2048;
+			Model classifier = new RandomForestModel();
+			double t1 = getRuntime(datasetName, type, FeatureSelection.filt, hashfoldsize,
+					classifier, true);
+			double t2 = getRuntime(datasetName, type, FeatureSelection.fold, hashfoldsize,
+					classifier, true);
+			filtBuildTime.add(t1);
+			foldBuildTime.add(t2);
+			filterTime.add(t1 - t2);
+		}
+		System.out.println(DoubleArraySummary.create(filtBuildTime));
+		System.out.println(DoubleArraySummary.create(foldBuildTime));
+		System.out.println(DoubleArraySummary.create(filterTime));
+
 		//		estimateRuntime(datasetName, type, featureSelection, hashfoldsize, classifier);
 	}
 }

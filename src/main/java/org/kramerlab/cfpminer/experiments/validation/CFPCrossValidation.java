@@ -45,7 +45,7 @@ import org.mg.wekalib.evaluation.Predictions;
  *   * inner loop: model selection
  *   * outer loop: model predictivity assessment
  *   
- * - plain cross-validation is only model selection without model assessment
+ * - if different algorithms are tested, than plain cross-validation is only model selection without model assessment
  * - to find out which model to build as final model, use plain-cv
  * - to find out how good this model is, use nested cv 
  * (i.e., nested cv does not contain info on which model is actually selected on entire data)
@@ -89,6 +89,20 @@ public class CFPCrossValidation
 	private static DataLoader loader = DataLoader.INSTANCE;
 	private List<Model> featModels;
 	private List<CDKDataSet> data;
+
+	public static CFPCrossValidation randomForest()
+	{
+		CFPCrossValidation cv = new CFPCrossValidation();
+		cv.numCVFolds = 10;
+		cv.numCVRepetitions = 3;
+		cv.stratified = true;
+		cv.sizes = ArrayUtil.toList(new Integer[] { 2048 });
+		cv.types = ListUtil.createList(CFPType.ecfp4);
+		cv.featureSelections = ListUtil.createList(FeatureSelection.filt);
+		cv.classifiers = ListUtil.create(Model.class, ModelProvider.RANDOM_FOREST);
+		cv.datasets = ArrayUtil.toList(loader.allDatasets());
+		return cv;
+	}
 
 	public static CFPCrossValidation paramOptimize()
 	{
@@ -442,7 +456,7 @@ public class CFPCrossValidation
 							.showInFrame(PredictionUtilPlots.getPRPlot(d.getPositiveClass(), pFold),
 									"AUPRC " + featProv.getFeatureSelection().toString() + " "
 											+ PredictionUtil.AUPRC(pFold, d.getPositiveClass()),
-							false);
+									false);
 				}
 
 				ValidationToMeasures valToMeasures = new ValidationToMeasures(val, perFold,

@@ -58,6 +58,11 @@ public class CDKDataSet extends AbstractDataSet
 		return d.getEndpoints();
 	}
 
+	public List<String> getSmiles()
+	{
+		return d.getSmiles();
+	}
+
 	@Override
 	public DataSet getFilteredDataset(String name, List<Integer> idx)
 	{

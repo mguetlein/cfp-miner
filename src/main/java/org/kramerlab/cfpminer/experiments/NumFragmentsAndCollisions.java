@@ -97,10 +97,11 @@ public class NumFragmentsAndCollisions extends PaperResults
 		return numFeatures.get(datasetName).get(type);
 	}
 
-	public void compute() throws Exception
+	public void compute(String... datasets) throws Exception
 	{
 		//String datasets[] = SMALL_DATASETS;
-		String datasets[] = DataLoader.INSTANCE.allDatasets();
+		if (datasets == null || datasets.length == 0)
+			datasets = DataLoader.INSTANCE.allDatasets();
 		//		CFPType types[] = new CFPType[] { CFPType.ecfp6, CFPType.ecfp4, CFPType.ecfp2,
 		//				CFPType.ecfp0 };
 		//		CFPType types[] = new CFPType[] { CFPType.fcfp6, CFPType.fcfp4, CFPType.fcfp2,
@@ -301,7 +302,7 @@ public class NumFragmentsAndCollisions extends PaperResults
 
 	public static void main(String[] args) throws Exception
 	{
-		//new NumFragmentsAndCollisions().store();
-		new NumFragmentsAndCollisions().printTables();
+		new NumFragmentsAndCollisions().compute("LTKB");
+		//new NumFragmentsAndCollisions().printTables();
 	}
 }

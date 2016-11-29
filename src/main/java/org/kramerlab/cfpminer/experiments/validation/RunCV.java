@@ -50,8 +50,10 @@ public class RunCV
 			//			DB.init(new ResultProviderImpl("jobs/store", "jobs/tmp"), null);
 
 			//			args = ("-s 1024 -d NCTRER -o compareCFPs -f filt,none -t ecfp4 -r 1 -c 0").split(" ");
-			args = ("-s 8192 -d MUV_733 -o paramOptimize -v -f filt -t ecfp4 -r 1 -c 0,1")
-					.split(" ");
+			//args = ("-s 2048 -d LTKB -o compareCFPs -v -f filt -t ecfp4 -r 1 -c 0,1").split(" ");
+
+			initDB(false, null);
+			args = ("-d LTKB -o randomForest").split(" ");
 		}
 		else
 		{
@@ -101,9 +103,11 @@ public class RunCV
 			cv = CFPCrossValidation.paramOptimize();
 		else if (option.equals("ridgeEval"))
 			cv = CFPCrossValidation.ridgeEval();
+		else if (option.equals("randomForest"))
+			cv = CFPCrossValidation.randomForest();
 		else
-			throw new IllegalArgumentException(
-					"invalid o: '" + option + "', not within paramOptimize|compareCFPs|ridgeEval");
+			throw new IllegalArgumentException("invalid o: '" + option
+					+ "', not within paramOptimize|compareCFPs|ridgeEval|randomForest");
 
 		if (sizes != null)
 			cv.sizes = ArrayUtil.toList(sizes);

@@ -14,5 +14,7 @@ public interface ADModel
 
 	public double getDistance(String smiles);
 
+	public double getDistanceWithoutIdenticalSmiles(String smiles);
+
 	public List<ADNeighbor> getNeighbors(String smiles);
 }
