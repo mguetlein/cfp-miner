@@ -1,7 +1,9 @@
 package org.kramerlab.cfpminer.experiments.validation;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.DefaultParser;
@@ -9,6 +11,8 @@ import org.apache.commons.cli.Options;
 import org.kramerlab.cfpminer.experiments.PaperResults;
 import org.mg.cdklib.cfp.CFPType;
 import org.mg.cdklib.cfp.FeatureSelection;
+import org.mg.cdklib.data.DataProvider;
+import org.mg.cdklib.data.DataProvider.DataID;
 import org.mg.javalib.datamining.ResultSet;
 import org.mg.javalib.datamining.ResultSetBoxPlot;
 import org.mg.javalib.util.ArrayUtil;
@@ -112,7 +116,8 @@ public class RunCV
 		if (sizes != null)
 			cv.sizes = ArrayUtil.toList(sizes);
 		if (datasets != null)
-			cv.datasets = ArrayUtil.toList(datasets);
+			cv.datasets = Arrays.stream(datasets).map(s -> DataProvider.DataID.valueOf(s))
+					.collect(Collectors.toList());
 		if (classifiers != null)
 		{
 			List<Model> selectedClassifiers = new ArrayList<>();
@@ -149,13 +154,13 @@ public class RunCV
 			//			ResultSet rs = cv.selectModelResultsPerRepetition(ClassificationMeasure.values(), false,
 			//					true);
 
-			for (String dataset : new ArrayList<>(cv.datasets))
+			for (DataID dataset : new ArrayList<>(cv.datasets))
 			{
 				cv.datasets = ListUtil.createList(dataset);
 				ResultSet rs = cv.selectModelResults(ClassificationMeasure.values(), false);
 				System.out.println(rs.toNiceString());
-				ResultSetBoxPlot bx = new ResultSetBoxPlot(rs, dataset, "performance", "AlgParams",
-						ListUtil.createList("AUC", "AUPRC"));
+				ResultSetBoxPlot bx = new ResultSetBoxPlot(rs, dataset.toString(), "performance",
+						"AlgParams", ListUtil.createList("AUC", "AUPRC"));
 				bx.setHideMean(true);
 				bx.setPrintMeanAndStdev(true);
 				//			ResultSetBoxPlot bx = new ResultSetBoxPlot(rs, "title", "performance", "AlgParams",

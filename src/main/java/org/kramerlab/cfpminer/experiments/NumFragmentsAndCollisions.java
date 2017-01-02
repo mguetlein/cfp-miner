@@ -7,7 +7,8 @@ import org.mg.cdklib.cfp.CFPMiner;
 import org.mg.cdklib.cfp.CFPType;
 import org.mg.cdklib.cfp.FeatureSelection;
 import org.mg.cdklib.data.CDKDataset;
-import org.mg.cdklib.data.DataLoader;
+import org.mg.cdklib.data.DataProvider;
+import org.mg.cdklib.data.DataProvider.DataID;
 import org.mg.javalib.datamining.Result;
 import org.mg.javalib.datamining.ResultSet;
 import org.mg.javalib.datamining.ResultSetFilter;
@@ -52,7 +53,7 @@ public class NumFragmentsAndCollisions extends PaperResults
 
 	public void sortDatasets(ResultSet r)
 	{
-		r.sortResults("Dataset", DataLoader.CFPDataComparator);
+		r.sortResults("Dataset", DataProvider.CFPDataComparator);
 	}
 
 	public boolean skipFiltFoldMethod(CFPType type, Integer size)
@@ -66,9 +67,9 @@ public class NumFragmentsAndCollisions extends PaperResults
 		return false;
 	}
 
-	public HashMap<String, HashMap<CFPType, Integer>> numFeatures;
+	public HashMap<DataID, HashMap<CFPType, Integer>> numFeatures;
 
-	public Integer getNumFeatures(String datasetName, CFPType type)
+	public Integer getNumFeatures(DataID dataset, CFPType type)
 	{
 		if (numFeatures == null)
 		{
@@ -76,7 +77,7 @@ public class NumFragmentsAndCollisions extends PaperResults
 			numFeatures = new HashMap<>();
 			for (int i = 0; i < res.getNumResults(); i++)
 			{
-				String d = res.getResultValue(i, "Dataset").toString();
+				DataID d = DataID.valueOf(res.getResultValue(i, "Dataset").toString());
 				CFPType t = CFPType.valueOf(res.getResultValue(i, "Type").toString());
 				Integer s = Integer.valueOf(res.getResultValue(i, "Fragments").toString());
 				if (s == null)
@@ -86,31 +87,31 @@ public class NumFragmentsAndCollisions extends PaperResults
 				numFeatures.get(d).put(t, s);
 			}
 		}
-		if (!numFeatures.containsKey(datasetName))
+		if (!numFeatures.containsKey(dataset))
 			throw new IllegalArgumentException(
-					"dataset " + datasetName + " not included in " + numFeatures.keySet());
-		if (!numFeatures.get(datasetName).containsKey(type))
+					"dataset " + dataset + " not included in " + numFeatures.keySet());
+		if (!numFeatures.get(dataset).containsKey(type))
 			throw new IllegalArgumentException("type " + type + " not included for dataset "
-					+ datasetName + " not included in " + numFeatures.get(datasetName).keySet());
-		if (numFeatures.get(datasetName).get(type) == null)
+					+ dataset + " not included in " + numFeatures.get(dataset).keySet());
+		if (numFeatures.get(dataset).get(type) == null)
 			throw new IllegalStateException("WTF");
-		return numFeatures.get(datasetName).get(type);
+		return numFeatures.get(dataset).get(type);
 	}
 
-	public void compute(String... datasets) throws Exception
+	public void compute(DataID... datasets) throws Exception
 	{
 		//String datasets[] = SMALL_DATASETS;
 		if (datasets == null || datasets.length == 0)
-			datasets = DataLoader.INSTANCE.allDatasets();
+			datasets = DATASETS;
 		//		CFPType types[] = new CFPType[] { CFPType.ecfp6, CFPType.ecfp4, CFPType.ecfp2,
 		//				CFPType.ecfp0 };
 		//		CFPType types[] = new CFPType[] { CFPType.fcfp6, CFPType.fcfp4, CFPType.fcfp2,
 		//				CFPType.fcfp0 };
 		int dCount = 0;
-		for (final String name : datasets)
+		for (final DataID d : datasets)
 		{
-			System.out.println(dCount + ": " + name);
-			CDKDataset data = DataLoader.INSTANCE.getDataset(name);
+			System.out.println(dCount + ": " + d);
+			CDKDataset data = DataProvider.getDataset(d);
 
 			for (final CFPType type : CFPType.values())
 			{
@@ -128,7 +129,7 @@ public class NumFragmentsAndCollisions extends PaperResults
 					@Override
 					public boolean accept(Result result)
 					{
-						return result.getValue("Dataset").equals(name)
+						return result.getValue("Dataset").equals(d.toString())
 								&& result.getValue("Type").equals(type.toString());
 					}
 				}).getNumResults() == 1)
@@ -138,7 +139,7 @@ public class NumFragmentsAndCollisions extends PaperResults
 
 				int idx = res.addResult();
 				CFPMiner miner = mine(data, type, FeatureSelection.none, 0);
-				res.setResultValue(idx, "Dataset", name);
+				res.setResultValue(idx, "Dataset", d.toString());
 				res.setResultValue(idx, "Type", type + "");
 				res.setResultValue(idx, "Compounds", miner.getNumCompounds());
 				res.setResultValue(idx, "Fragments", miner.getNumFragments());
@@ -181,7 +182,7 @@ public class NumFragmentsAndCollisions extends PaperResults
 		}
 		//		ResultSetIO.printToTxtFile(new File(System.getProperty("user.home")
 		// + "/results/cdklib/data_collisions/collisions.result"), res, true);
-		System.exit(1);
+		//System.exit(1);
 	}
 
 	public void printTables()
@@ -302,7 +303,8 @@ public class NumFragmentsAndCollisions extends PaperResults
 
 	public static void main(String[] args) throws Exception
 	{
-		new NumFragmentsAndCollisions().compute("LTKB");
-		//new NumFragmentsAndCollisions().printTables();
+		WRITE_FILES = false;
+		new NumFragmentsAndCollisions().compute(DataID.LTKB);
+		new NumFragmentsAndCollisions().printTables();
 	}
 }

@@ -13,7 +13,8 @@ import org.kramerlab.cfpminer.weka.eval2.CFPFeatureProvider;
 import org.kramerlab.cfpminer.weka.eval2.LowNumFeaturesEvalCriterion;
 import org.mg.cdklib.cfp.CFPType;
 import org.mg.cdklib.cfp.FeatureSelection;
-import org.mg.cdklib.data.DataLoader;
+import org.mg.cdklib.data.DataProvider;
+import org.mg.cdklib.data.DataProvider.DataID;
 import org.mg.javalib.datamining.ResultSet;
 import org.mg.javalib.util.ArrayUtil;
 import org.mg.javalib.util.ListUtil;
@@ -84,9 +85,8 @@ public class CFPCrossValidation
 	public List<FeatureSelection> featureSelections;
 	public List<Integer> sizes;
 	public List<Model> classifiers;
-	public List<String> datasets;
+	public List<DataID> datasets;
 
-	private static DataLoader loader = DataLoader.INSTANCE;
 	private List<Model> featModels;
 	private List<CDKDataSet> data;
 
@@ -100,7 +100,7 @@ public class CFPCrossValidation
 		cv.types = ListUtil.createList(CFPType.ecfp4);
 		cv.featureSelections = ListUtil.createList(FeatureSelection.filt);
 		cv.classifiers = ListUtil.create(Model.class, ModelProvider.RANDOM_FOREST);
-		cv.datasets = ArrayUtil.toList(loader.allDatasets());
+		cv.datasets = ArrayUtil.toList(DataProvider.cfpDatasetsSorted());
 		return cv;
 	}
 
@@ -114,7 +114,7 @@ public class CFPCrossValidation
 		cv.types = ListUtil.createList(CFPType.ecfp4);
 		cv.featureSelections = ListUtil.createList(FeatureSelection.filt);
 		cv.classifiers = ArrayUtil.toList(ModelProvider.ALL_MODELS_PARAM_OPTIMIZE);
-		cv.datasets = ArrayUtil.toList(loader.allDatasets());
+		cv.datasets = ArrayUtil.toList(DataProvider.cfpDatasetsSorted());
 		return cv;
 	}
 
@@ -128,7 +128,7 @@ public class CFPCrossValidation
 		cv.types = ListUtil.createList(CFPType.ecfp4);
 		cv.featureSelections = ArrayUtil.toList(FeatureSelection.values());
 		cv.classifiers = ArrayUtil.toList(ModelProvider.ALL_MODELS_PARAM_DEFAULT);
-		cv.datasets = ArrayUtil.toList(loader.allDatasets());
+		cv.datasets = ArrayUtil.toList(DataProvider.cfpDatasetsSorted());
 		return cv;
 	}
 
@@ -143,7 +143,7 @@ public class CFPCrossValidation
 		cv.featureSelections = ArrayUtil.toList(FeatureSelection.values());
 		cv.classifiers = ArrayUtil
 				.toList(ArrayUtil.cast(Model.class, ModelProvider.SVMS_RIDGE_EVAL));
-		cv.datasets = ArrayUtil.toList(loader.reducedDatasets());
+		cv.datasets = ArrayUtil.toList(DataProvider.cfpDatasetsSorted());
 		return cv;
 	}
 
@@ -179,8 +179,8 @@ public class CFPCrossValidation
 		}
 
 		data = new ArrayList<>();
-		for (String datasetName : datasets)
-			data.add(new CDKDataSet(datasetName, loader.getDataset(datasetName)));
+		for (DataID d : datasets)
+			data.add(new CDKDataSet(d.toString(), DataProvider.getDataset(d)));
 	}
 
 	private ValidationEval innerValidation()//boolean performCV)
@@ -402,9 +402,9 @@ public class CFPCrossValidation
 				{
 					classifierModel.setTrainingDataset(null);
 					classifierModel.setTestDataset(null);
-					runtime = ModelBuildingRuntimes.getRuntime(d.getName(), featProv.getType(),
-							featProv.getFeatureSelection(), featProv.getHashfoldSize(),
-							classifierModel, true);
+					runtime = ModelBuildingRuntimes.getRuntime(DataID.valueOf(d.getName()),
+							featProv.getType(), featProv.getFeatureSelection(),
+							featProv.getHashfoldSize(), classifierModel, true);
 				}
 
 				int inspectSeed = -1;

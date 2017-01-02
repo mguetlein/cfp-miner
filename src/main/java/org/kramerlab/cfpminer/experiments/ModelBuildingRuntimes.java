@@ -19,7 +19,8 @@ import org.mg.cdklib.cfp.CFPMiner;
 import org.mg.cdklib.cfp.CFPType;
 import org.mg.cdklib.cfp.FeatureSelection;
 import org.mg.cdklib.data.CDKDataset;
-import org.mg.cdklib.data.DataLoader;
+import org.mg.cdklib.data.DataProvider;
+import org.mg.cdklib.data.DataProvider.DataID;
 import org.mg.javalib.util.DoubleArraySummary;
 import org.mg.javalib.util.ListUtil;
 import org.mg.javalib.util.StopWatchUtil;
@@ -39,10 +40,10 @@ import weka.core.SparseInstance;
 public class ModelBuildingRuntimes extends PaperResults
 {
 
-	private static String getRuntimeKey(String datasetName, CFPType type,
+	private static String getRuntimeKey(DataID dataset, CFPType type,
 			FeatureSelection featureSelection, int hashfoldsize, Model classifier, boolean build)
 	{
-		return datasetName + "#" + type.toString() + "#" + featureSelection.toString() + "#"
+		return dataset.toString() + "#" + type.toString() + "#" + featureSelection.toString() + "#"
 				+ hashfoldsize + "#" + classifier.getKeyContent() + "#" + build;
 	}
 
@@ -70,11 +71,10 @@ public class ModelBuildingRuntimes extends PaperResults
 		}
 	}
 
-	public static double getRuntime(String datasetName, CFPType type,
-			FeatureSelection featureSelection, int hashfoldsize, Model classifier, boolean build)
+	public static double getRuntime(DataID d, CFPType type, FeatureSelection featureSelection,
+			int hashfoldsize, Model classifier, boolean build)
 	{
-		String k = getRuntimeKey(datasetName, type, featureSelection, hashfoldsize, classifier,
-				build);
+		String k = getRuntimeKey(d, type, featureSelection, hashfoldsize, classifier, build);
 		if (runtimes.containsKey(k))
 			return runtimes.get(k);
 		else
@@ -84,16 +84,16 @@ public class ModelBuildingRuntimes extends PaperResults
 		}
 	}
 
-	private static void estimateSingleRuntime(String datasetName, CFPType type,
+	private static void estimateSingleRuntime(DataID d, CFPType type,
 			FeatureSelection featureSelection, int hashfoldsize, Model classifier) throws Exception
 	{
-		System.out.println("start " + datasetName + " " + type + " " + featureSelection + " "
-				+ hashfoldsize + " " + classifier);
+		System.out.println("start " + d + " " + type + " " + featureSelection + " " + hashfoldsize
+				+ " " + classifier);
 		//StopWatchUtil.start("all");
 
 		//StopWatchUtil.start("all > load data");
 
-		CDKDataset dataset = DataLoader.INSTANCE.getDataset(datasetName);
+		CDKDataset dataset = DataProvider.getDataset(d);
 		List<String> list = dataset.getSmiles();
 		List<String> endpointValues = dataset.getEndpoints();
 		ListUtil.scramble(new Random(1), list, endpointValues);
@@ -128,7 +128,7 @@ public class ModelBuildingRuntimes extends PaperResults
 		//StopWatchUtil.start("all > create > build model");
 
 		//StopWatchUtil.start("all > create > build model > create instances");
-		Instances inst = CFPtoArff.getTrainingDataset(cfps, datasetName);
+		Instances inst = CFPtoArff.getTrainingDataset(cfps, d.toString());
 		inst.setClassIndex(inst.numAttributes() - 1);
 
 		if (!(inst.get(0) instanceof SparseInstance))
@@ -179,13 +179,12 @@ public class ModelBuildingRuntimes extends PaperResults
 		//StopWatchUtil.stop("all");
 		//		StopWatchUtil.print();
 
-		String key = getRuntimeKey(datasetName, type, featureSelection, hashfoldsize, classifier,
-				true);
+		String key = getRuntimeKey(d, type, featureSelection, hashfoldsize, classifier, true);
 		System.out.println(key + " " + create / 1000.0);
 		//		System.out.println(runtimes.get(k));
 		runtimes.put(key, create / 1000.0);
 
-		key = getRuntimeKey(datasetName, type, featureSelection, hashfoldsize, classifier, false);
+		key = getRuntimeKey(d, type, featureSelection, hashfoldsize, classifier, false);
 		System.out.println(key + " " + predict / 1000.0);
 		//		System.out.println(runtimes.get(k));
 		runtimes.put(key, predict / 1000.0);
@@ -200,14 +199,13 @@ public class ModelBuildingRuntimes extends PaperResults
 
 	public static void estimateNextRuntime() throws Exception
 	{
-		String datasets[] = DataLoader.INSTANCE.allDatasetsSorted();
 		for (Integer size : PaperValidationResults.SIZES)
 		{
-			for (String datasetName : datasets)
+			for (DataID dataset : DATASETS)
 			{
 				CFPType type = CFPType.ecfp4;
 				{
-					if (size >= frags.getNumFeatures(datasetName, type))
+					if (size >= frags.getNumFeatures(dataset, type))
 						continue;
 
 					for (Model classifier : ModelProvider.ALL_MODELS_PARAM_DEFAULT)
@@ -217,11 +215,11 @@ public class ModelBuildingRuntimes extends PaperResults
 							int hashfoldsize = (featureSelection == FeatureSelection.none) ? 0
 									: size;
 							{
-								String k = getRuntimeKey(datasetName, type, featureSelection,
+								String k = getRuntimeKey(dataset, type, featureSelection,
 										hashfoldsize, classifier, true);
 								if (!runtimes.containsKey(k))
 								{
-									estimateSingleRuntime(datasetName, type, featureSelection,
+									estimateSingleRuntime(dataset, type, featureSelection,
 											hashfoldsize, classifier);
 									System.exit(0);
 								}
@@ -256,16 +254,16 @@ public class ModelBuildingRuntimes extends PaperResults
 		List<Double> foldBuildTime = new ArrayList<Double>();
 		List<Double> filterTime = new ArrayList<Double>();
 		//		String datasetName = "AMES";
-		for (String datasetName : DataLoader.INSTANCE.allDatasetsSorted())
+		for (DataID dataset : DATASETS)
 		{
-			System.out.println(datasetName);
+			System.out.println(dataset);
 			CFPType type = CFPType.ecfp4;
 			int hashfoldsize = 2048;
 			Model classifier = new RandomForestModel();
-			double t1 = getRuntime(datasetName, type, FeatureSelection.filt, hashfoldsize,
-					classifier, true);
-			double t2 = getRuntime(datasetName, type, FeatureSelection.fold, hashfoldsize,
-					classifier, true);
+			double t1 = getRuntime(dataset, type, FeatureSelection.filt, hashfoldsize, classifier,
+					true);
+			double t2 = getRuntime(dataset, type, FeatureSelection.fold, hashfoldsize, classifier,
+					true);
 			filtBuildTime.add(t1);
 			foldBuildTime.add(t2);
 			filterTime.add(t1 - t2);

@@ -5,6 +5,7 @@ import java.util.HashMap;
 
 import org.jfree.chart.ChartPanel;
 import org.kramerlab.cfpminer.weka.eval2.CFPFeatureProvider;
+import org.mg.cdklib.data.DataProvider.DataID;
 import org.mg.javalib.datamining.ResultSet;
 import org.mg.javalib.datamining.ResultSetBoxPlot;
 import org.mg.javalib.util.ArrayUtil;
@@ -38,7 +39,7 @@ public class InnerValidationResults extends PaperValidationResults
 		}
 	}
 
-	public ResultSet getValidationResults(String dataset) throws Exception
+	public ResultSet getValidationResults(DataID dataset) throws Exception
 	{
 		CFPCrossValidation cv = CFPCrossValidation.paramOptimize();
 		cv.datasets = ListUtil.createList(dataset);
@@ -46,17 +47,17 @@ public class InnerValidationResults extends PaperValidationResults
 		return rs;
 	}
 
-	public void plotValidationResult(String dataset, String pngFile) throws Exception
+	public void plotValidationResult(DataID dataset, String pngFile) throws Exception
 	{
 		plotValidationResult(getValidationResults(dataset), pngFile);
 	}
 
 	public void printSelectedAndValidatedAlgorithms() throws Exception
 	{
-		printSelectedAndValidatedAlgorithms((String) null);
+		printSelectedAndValidatedAlgorithms((DataID) null);
 	}
 
-	public void printSelectedAndValidatedAlgorithms(String... dataset) throws Exception
+	public void printSelectedAndValidatedAlgorithms(DataID... dataset) throws Exception
 	{
 		CFPCrossValidation cv = CFPCrossValidation.paramOptimize();
 		if (dataset != null && dataset[0] != null)
@@ -106,7 +107,7 @@ public class InnerValidationResults extends PaperValidationResults
 		System.out.println(rs.getResultValues("HashfoldSize"));
 	}
 
-	public FeatureModel getSelectedModel(String dataset) throws Exception
+	public FeatureModel getSelectedModel(DataID dataset) throws Exception
 	{
 		CFPCrossValidation cv = CFPCrossValidation.paramOptimize();
 		cv.datasets = ListUtil.createList(dataset);
@@ -130,7 +131,7 @@ public class InnerValidationResults extends PaperValidationResults
 		WRITE_FILES = false;
 		//new InnerValidationResults().printSelectedAndValidatedAlgorithms();
 		//		System.out.println(new InnerValidationResults().getValidationResults("NCTRER"));
-		System.out.println(new InnerValidationResults().getSelectedModel("NCTRER"));
+		System.out.println(new InnerValidationResults().getSelectedModel(DataID.NCTRER));
 		System.exit(0);
 	}
 }

@@ -4,6 +4,7 @@ import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Font;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -179,7 +180,7 @@ public class CFPDiffChart extends PaperValidationResults
 		for (Integer chartSize : SIZES)
 		{
 			CFPCrossValidation cv = CFPCrossValidation.compareCFPs();
-			cv.datasets = DATASETS; // ListUtil.createList("CPDBAS_Mutagenicity", "DUD_vegfr2");
+			cv.datasets = Arrays.asList(DATASETS); // ListUtil.createList("CPDBAS_Mutagenicity", "DUD_vegfr2");
 			cv.types = ListUtil.createList(CFPType.ecfp4);
 			cv.sizes = ListUtil.createList(chartSize);
 			//			cv.classifiers = ListUtil.create(Model.class, new RandomForestModel(),

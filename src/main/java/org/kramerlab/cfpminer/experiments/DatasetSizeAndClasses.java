@@ -1,8 +1,6 @@
 package org.kramerlab.cfpminer.experiments;
 
-import java.util.Arrays;
-
-import org.mg.cdklib.data.DataLoader;
+import org.mg.cdklib.data.DataProvider;
 import org.mg.javalib.datamining.ResultSet;
 import org.mg.javalib.util.FileUtil;
 
@@ -10,12 +8,8 @@ public class DatasetSizeAndClasses extends PaperResults
 {
 	public void printTables()
 	{
-		DataLoader d = DataLoader.INSTANCE;
-		String datasets[] = d.allDatasets();
-		Arrays.sort(datasets, 0, datasets.length, DataLoader.CFPDataComparator);
-
 		{
-			ResultSet r = d.getInfo(false, datasets);
+			ResultSet r = DataProvider.getInfo(false, DATASETS);
 			for (int idx = 0; idx < r.getNumResults(); idx++)
 				r.setResultValue(idx, "name",
 						r.getResultValue(idx, "name").toString().replaceAll("_", " "));
@@ -31,7 +25,7 @@ public class DatasetSizeAndClasses extends PaperResults
 		}
 
 		{
-			ResultSet r = d.getCategoryInfo(true, datasets);
+			ResultSet r = DataProvider.getCategoryInfo(true, DATASETS);
 			System.out.println(r.toNiceString());
 			if (WRITE_FILES)
 			{
@@ -42,7 +36,7 @@ public class DatasetSizeAndClasses extends PaperResults
 		}
 
 		{
-			ResultSet r = d.getCategoryInfo(false, datasets);
+			ResultSet r = DataProvider.getCategoryInfo(false, DATASETS);
 			System.out.println(r.toNiceString());
 			if (WRITE_FILES)
 			{
@@ -55,7 +49,7 @@ public class DatasetSizeAndClasses extends PaperResults
 
 	public static void main(String[] args)
 	{
-		WRITE_FILES = true;
+		WRITE_FILES = false;
 		//System.out.println(new DataLoader("data").getDataset("MUV_733").getWarnings());
 		new DatasetSizeAndClasses().printTables();
 

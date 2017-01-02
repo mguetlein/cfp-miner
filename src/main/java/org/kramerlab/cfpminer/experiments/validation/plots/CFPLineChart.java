@@ -1,12 +1,13 @@
 package org.kramerlab.cfpminer.experiments.validation.plots;
 
 import java.awt.Dimension;
+import java.util.Arrays;
 
 import org.jfree.chart.ChartPanel;
 import org.kramerlab.cfpminer.experiments.validation.CFPCrossValidation;
 import org.kramerlab.cfpminer.experiments.validation.PaperValidationResults;
 import org.mg.cdklib.cfp.CFPType;
-import org.mg.cdklib.data.DataLoader;
+import org.mg.cdklib.data.DataProvider;
 import org.mg.javalib.datamining.ResultSet;
 import org.mg.javalib.datamining.ResultSetLinePlot;
 import org.mg.javalib.util.ArrayUtil;
@@ -79,7 +80,7 @@ public class CFPLineChart extends PaperValidationResults
 			//			if (p.equals("Accuracy"))
 			//			{
 			//				if (r.getResultValues("Dataset").contains("AMES"))
-			plot.addMarker(m.toString(), "AMES", DataLoader.BALANCED_DATASETS);
+			plot.addMarker(m.toString(), "AMES", DataProvider.BALANCED_DATASETS);
 			//				else
 			//					plot.addMarker(p, "CPDBAS Dog Primates", CFPDataLoader.BALANCED_DATASETS);
 			plot.addMarker(m.toString(), "ChEMBL 8", "ChEMBL");
@@ -133,7 +134,7 @@ public class CFPLineChart extends PaperValidationResults
 		for (Model model : ModelProvider.ALL_MODELS_PARAM_DEFAULT)
 		{
 			CFPCrossValidation cv = CFPCrossValidation.compareCFPs();
-			cv.datasets = DATASETS;
+			cv.datasets = Arrays.asList(DATASETS);
 			cv.sizes = ListUtil.createList(1024);
 			cv.classifiers = ListUtil.create(Model.class, model);
 			cv.types = ListUtil.createList(CFPType.ecfp4);

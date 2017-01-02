@@ -6,11 +6,11 @@ import java.util.List;
 import java.util.Locale;
 
 import org.kramerlab.cfpminer.experiments.validation.plots.CFPWinLossChart;
-import org.mg.cdklib.data.DataLoader;
+import org.mg.cdklib.data.DataProvider;
+import org.mg.cdklib.data.DataProvider.DataID;
 import org.mg.javalib.datamining.ResultSet;
 import org.mg.javalib.datamining.WekaResultSetUtil;
 import org.mg.javalib.io.ExternalTool;
-import org.mg.javalib.util.ArrayUtil;
 import org.mg.javalib.util.ListUtil;
 import org.mg.wekalib.eval2.model.Model;
 import org.mg.wekalib.eval2.model.ModelProvider;
@@ -23,8 +23,7 @@ public class PaperResults
 			+ "/documents/ecfps/latex/results/";
 	protected static boolean SHOW_PLOTS = true;
 	protected static boolean WRITE_FILES = false;
-	protected static final List<String> DATASETS = ArrayUtil
-			.toList(DataLoader.INSTANCE.allDatasetsSorted());
+	protected static final DataID[] DATASETS = DataProvider.cfpDatasetsSorted();
 	protected static final List<Integer> SIZES = ListUtil.createList(1024, 2048, 4096, 8192);
 
 	public static final String RUNTIME = "Time";

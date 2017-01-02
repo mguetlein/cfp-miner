@@ -1,6 +1,7 @@
 package org.kramerlab.cfpminer.experiments.validation.plots;
 
 import java.awt.Dimension;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -41,7 +42,7 @@ public class CFPWinLossChart extends PaperValidationResults
 		CFPCrossValidation cv = CFPCrossValidation.compareCFPs();
 		//		cv.datasets = ListUtil.createList("CPDBAS_Mutagenicity", "DUD_vegfr2", "DUD_hivrt",
 		//				"DUD_cdk2");
-		cv.datasets = DATASETS; // ArrayUtil.toList(new DataLoader("data").balancedDatasets());
+		cv.datasets = Arrays.asList(DATASETS); // ArrayUtil.toList(new DataLoader("data").balancedDatasets());
 		cv.sizes = ListUtil.createList(size);
 		cv.featureSelections = ListUtil.createList(FeatureSelection.filt, FeatureSelection.none);
 		//cv.featureSelections = ListUtil.createList(FeatureSelection.none);
@@ -116,7 +117,7 @@ public class CFPWinLossChart extends PaperValidationResults
 		CFPCrossValidation cv = CFPCrossValidation.compareCFPs();
 		//		cv.datasets = ListUtil.createList("CPDBAS_Mutagenicity", "DUD_vegfr2", "DUD_hivrt",
 		//				"DUD_cdk2");
-		cv.datasets = DATASETS;
+		cv.datasets = Arrays.asList(DATASETS);
 		//cv.datasets = ArrayUtil.toList(new DataLoader("data").balancedDatasets());
 		cv.sizes = ListUtil.createList(size);
 		//cv.classifiers = ListUtil.create(Model.class, new SupportVectorMachineModel());
