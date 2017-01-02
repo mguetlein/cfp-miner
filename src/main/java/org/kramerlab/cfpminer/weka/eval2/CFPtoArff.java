@@ -5,6 +5,7 @@ import java.util.HashMap;
 import java.util.List;
 
 import org.mg.cdklib.CDKConverter;
+import org.mg.cdklib.cfp.BasicCFPMiner;
 import org.mg.cdklib.cfp.CFPMiner;
 import org.mg.javalib.util.ListUtil;
 import org.mg.wekalib.data.ArffWritable;
@@ -16,6 +17,11 @@ import weka.core.Instances;
 
 public class CFPtoArff
 {
+	public static Instances getDataset(BasicCFPMiner miner, String relationName) throws Exception
+	{
+		return InstancesCreator.create(getArffWritable(miner, relationName, null, null));
+	}
+
 	public static Instances getTrainingDataset(CFPMiner miner, String endpointName) throws Exception
 	{
 		//Instances inst = ArffWriter.toInstances(getArffWritable(miner, endpointName, null, null));
@@ -49,27 +55,35 @@ public class CFPtoArff
 		return inst;
 	}
 
-	public static Instances getTestDataset(CFPMiner miner, String endpointName, List<String> smiles,
-			List<String> endpoints) throws Exception
+	public static Instances getTestDataset(BasicCFPMiner miner, String endpointName,
+			List<String> smiles, List<String> endpoints) throws Exception
 	{
 		IAtomContainer mols[] = new IAtomContainer[smiles.size()];
 		for (int i = 0; i < mols.length; i++)
 			mols[i] = CDKConverter.parseSmiles(smiles.get(i));
 		//		Instances inst = ArffWriter.toInstances(
 		//				getArffWritable(miner, endpointName, mols, ListUtil.toArray(endpoints)));
-		Instances inst = InstancesCreator
-				.create(getArffWritable(miner, endpointName, mols, ListUtil.toArray(endpoints)));
+		String eps[] = (endpoints != null) ? ListUtil.toArray(endpoints) : null;
+		Instances inst = InstancesCreator.create(getArffWritable(miner, endpointName, mols, eps));
 		inst.setClassIndex(inst.numAttributes() - 1);
 		return inst;
 	}
 
-	private static ArffWritable getArffWritable(final CFPMiner miner, final String endpointName,
-			final IAtomContainer[] testMol, final String[] testEndpoints) throws Exception
+	private static ArffWritable getArffWritable(final BasicCFPMiner miner,
+			final String endpointName, final IAtomContainer[] testMol, final String[] testEndpoints)
+			throws Exception
 	{
-		final HashMap<String, Double> endpointToDouble = new HashMap<>();
-		int idx = 0;
-		for (String e : miner.getClassValues())
-			endpointToDouble.put(e, (double) idx++);
+		final boolean isClassAvailable = (miner instanceof CFPMiner);
+		final HashMap<String, Double> endpointToDouble;
+		if (isClassAvailable)
+		{
+			endpointToDouble = new HashMap<>();
+			int idx = 0;
+			for (String e : ((CFPMiner) miner).getClassValues())
+				endpointToDouble.put(e, (double) idx++);
+		}
+		else
+			endpointToDouble = null;
 
 		return new ArffWritable()
 		{
@@ -103,7 +117,7 @@ public class CFPtoArff
 			@Override
 			public int getNumAttributes()
 			{
-				return miner.getNumFragments() + 1;
+				return miner.getNumFragments() + (isClassAvailable ? 1 : 0);
 			}
 
 			@Override
@@ -115,8 +129,8 @@ public class CFPtoArff
 			@Override
 			public String[] getAttributeDomain(int attribute)
 			{
-				if (attribute == miner.getNumFragments())
-					return miner.getClassValues();
+				if (isClassAvailable && attribute == miner.getNumFragments())
+					return ((CFPMiner) miner).getClassValues();
 				else
 					return new String[] { "0", "1" };
 			}
@@ -126,15 +140,15 @@ public class CFPtoArff
 			{
 				if (testMol == null)
 				{
-					if (attribute == miner.getNumFragments())
-						return miner.getEndpoints().get(instance);
+					if (isClassAvailable && attribute == miner.getNumFragments())
+						return ((CFPMiner) miner).getEndpoints().get(instance);
 					else
 						return miner.getFragmentsForCompound(instance)
 								.contains(miner.getFragmentViaIdx(attribute)) ? "1" : "0";
 				}
 				else
 				{
-					if (attribute == miner.getNumFragments())
+					if (isClassAvailable && attribute == miner.getNumFragments())
 					{
 						if (testEndpoints == null)
 							return "?";
@@ -152,15 +166,16 @@ public class CFPtoArff
 			{
 				if (testMol == null)
 				{
-					if (attribute == miner.getNumFragments())
-						return endpointToDouble.get(miner.getEndpoints().get(instance));
+					if (isClassAvailable && attribute == miner.getNumFragments())
+						return endpointToDouble
+								.get(((CFPMiner) miner).getEndpoints().get(instance));
 					else
 						return miner.getFragmentsForCompound(instance)
 								.contains(miner.getFragmentViaIdx(attribute)) ? 1.0 : 0.0;
 				}
 				else
 				{
-					if (attribute == miner.getNumFragments())
+					if (isClassAvailable && attribute == miner.getNumFragments())
 					{
 						if (testEndpoints == null)
 							return Double.NaN;
@@ -176,7 +191,7 @@ public class CFPtoArff
 			@Override
 			public String getAttributeName(int attribute)
 			{
-				if (attribute == miner.getNumFragments())
+				if (isClassAvailable && attribute == miner.getNumFragments())
 					return endpointName;
 				else
 					return miner.getFragmentViaIdx(attribute) + "";
