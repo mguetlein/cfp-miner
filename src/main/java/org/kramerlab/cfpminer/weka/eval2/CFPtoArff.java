@@ -9,7 +9,6 @@ import org.mg.cdklib.cfp.BasicCFPMiner;
 import org.mg.cdklib.cfp.CFPMiner;
 import org.mg.javalib.util.ListUtil;
 import org.mg.wekalib.data.ArffWritable;
-import org.mg.wekalib.data.ArffWriter;
 import org.mg.wekalib.data.InstancesCreator;
 import org.openscience.cdk.interfaces.IAtomContainer;
 
@@ -33,14 +32,14 @@ public class CFPtoArff
 	public static void writeTrainingDataset(String arffFile, CFPMiner miner, String endpointName)
 			throws Exception
 	{
-		ArffWriter.writeToArffFile(new File(arffFile),
+		InstancesCreator.toArffFile(new File(arffFile),
 				getArffWritable(miner, endpointName, null, null));
 	}
 
 	public static void writeTestDataset(String arffFile, CFPMiner miner, String endpointName,
 			IAtomContainer testMol) throws Exception
 	{
-		ArffWriter.writeToArffFile(new File(arffFile),
+		InstancesCreator.toArffFile(new File(arffFile),
 				getArffWritable(miner, endpointName, new IAtomContainer[] { testMol }, null));
 	}
 
@@ -121,44 +120,12 @@ public class CFPtoArff
 			}
 
 			@Override
-			public String getMissingValue(int attribute)
-			{
-				throw new IllegalStateException("no missing values");
-			}
-
-			@Override
 			public String[] getAttributeDomain(int attribute)
 			{
 				if (isClassAvailable && attribute == miner.getNumFragments())
 					return ((CFPMiner) miner).getClassValues();
 				else
 					return new String[] { "0", "1" };
-			}
-
-			@Override
-			public String getAttributeValue(int instance, int attribute) throws Exception
-			{
-				if (testMol == null)
-				{
-					if (isClassAvailable && attribute == miner.getNumFragments())
-						return ((CFPMiner) miner).getEndpoints().get(instance);
-					else
-						return miner.getFragmentsForCompound(instance)
-								.contains(miner.getFragmentViaIdx(attribute)) ? "1" : "0";
-				}
-				else
-				{
-					if (isClassAvailable && attribute == miner.getNumFragments())
-					{
-						if (testEndpoints == null)
-							return "?";
-						else
-							return testEndpoints[instance];
-					}
-					else
-						return miner.getFragmentsForTestCompound(testMol[instance])
-								.contains(miner.getFragmentViaIdx(attribute)) ? "1" : "0";
-				}
 			}
 
 			@Override
@@ -196,12 +163,6 @@ public class CFPtoArff
 				else
 					return miner.getFragmentViaIdx(attribute) + "";
 
-			}
-
-			@Override
-			public List<String> getAdditionalInfo()
-			{
-				return null;
 			}
 		};
 	}

@@ -148,12 +148,6 @@ public class OBFeatureProvider extends DefaultJobOwner<DataSet[]> implements Fea
 				}
 
 				@Override
-				public String getMissingValue(int attribute)
-				{
-					throw new IllegalStateException();
-				}
-
-				@Override
 				public double getAttributeValueAsDouble(int instance, int attribute)
 						throws Exception
 				{
@@ -168,12 +162,6 @@ public class OBFeatureProvider extends DefaultJobOwner<DataSet[]> implements Fea
 					{
 						return featureVals.get(features.get(attribute)).get(instance);
 					}
-				}
-
-				@Override
-				public String getAttributeValue(int instance, int attribute) throws Exception
-				{
-					throw new IllegalStateException();
 				}
 
 				@Override
@@ -192,12 +180,6 @@ public class OBFeatureProvider extends DefaultJobOwner<DataSet[]> implements Fea
 						return domain;
 					else
 						return null;
-				}
-
-				@Override
-				public List<String> getAdditionalInfo()
-				{
-					return null;
 				}
 			});
 			inst.setClassIndex(inst.numAttributes() - 1);
