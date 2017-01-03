@@ -57,7 +57,7 @@ public class RunCV
 			//args = ("-s 2048 -d LTKB -o compareCFPs -v -f filt -t ecfp4 -r 1 -c 0,1").split(" ");
 
 			initDB(false, null);
-			args = ("-d LTKB -o randomForest").split(" ");
+			args = ("-d LTKB -o deepLearning").split(" ");
 		}
 		else
 		{
@@ -70,7 +70,8 @@ public class RunCV
 		opt.addOption("v", false,
 				"v given: validate (requires o:paramOptimize), v not given: select");
 		opt.addOption("f", true, "features selection methods, comma seperated");
-		opt.addOption("o", true, "o: paramOptimize|compareCFPs|ridgeEval, default: compareCFPs");
+		opt.addOption("o", true,
+				"o: paramOptimize|compareCFPs|ridgeEval|randomForest|deepLearning, default: compareCFPs");
 		opt.addOption("t", true, "type, comma seperated");
 		opt.addOption("r", true, "num-repetitions, default is 3");
 
@@ -109,9 +110,11 @@ public class RunCV
 			cv = CFPCrossValidation.ridgeEval();
 		else if (option.equals("randomForest"))
 			cv = CFPCrossValidation.randomForest();
+		else if (option.equals("deepLearning"))
+			cv = CFPCrossValidation.deepLearning();
 		else
 			throw new IllegalArgumentException("invalid o: '" + option
-					+ "', not within paramOptimize|compareCFPs|ridgeEval|randomForest");
+					+ "', not within paramOptimize|compareCFPs|ridgeEval|randomForest|deepLearning");
 
 		if (sizes != null)
 			cv.sizes = ArrayUtil.toList(sizes);

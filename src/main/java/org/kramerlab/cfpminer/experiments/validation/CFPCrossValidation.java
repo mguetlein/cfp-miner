@@ -15,6 +15,7 @@ import org.mg.cdklib.cfp.CFPType;
 import org.mg.cdklib.cfp.FeatureSelection;
 import org.mg.cdklib.data.DataProvider;
 import org.mg.cdklib.data.DataProvider.DataID;
+import org.mg.deeplearninglib.MultiLayerModel;
 import org.mg.javalib.datamining.ResultSet;
 import org.mg.javalib.util.ArrayUtil;
 import org.mg.javalib.util.ListUtil;
@@ -89,6 +90,20 @@ public class CFPCrossValidation
 
 	private List<Model> featModels;
 	private List<CDKDataSet> data;
+
+	public static CFPCrossValidation deepLearning()
+	{
+		CFPCrossValidation cv = new CFPCrossValidation();
+		cv.numCVFolds = 10;
+		cv.numCVRepetitions = 3;
+		cv.stratified = true;
+		cv.sizes = ArrayUtil.toList(new Integer[] { 2048 });
+		cv.types = ListUtil.createList(CFPType.ecfp4);
+		cv.featureSelections = ListUtil.createList(FeatureSelection.filt);
+		cv.classifiers = ListUtil.create(Model.class, new MultiLayerModel());
+		cv.datasets = ArrayUtil.toList(DataProvider.cfpDatasetsSorted());
+		return cv;
+	}
 
 	public static CFPCrossValidation randomForest()
 	{
