@@ -28,7 +28,7 @@ import org.mg.wekalib.evaluation.PredictionUtil.ClassificationMeasure;
 
 public class RunCV
 {
-	static void initDB(boolean blockAndPrintEnabled, String outfilePrefix)
+	public static void initDB(boolean blockAndPrintEnabled, String outfilePrefix)
 	{
 		Blocker blocker = null;
 		if (blockAndPrintEnabled)

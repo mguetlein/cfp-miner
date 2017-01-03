@@ -183,27 +183,16 @@ public class CFPCrossValidation
 			data.add(new CDKDataSet(d.toString(), DataProvider.getDataset(d)));
 	}
 
-	private ValidationEval innerValidation()//boolean performCV)
+	private ValidationEval innerValidation()
 	{
 		ValidationEval innerValidation = new ValidationEval();
 		innerValidation.setModels(ListUtil.toArray(featModels));
 		Validation val;
-		//		if (performCV)
-		//		{
 		innerValidation.setRepetitions(numCVRepetitions);
 		val = new CV();
 		((CV) val).setNumFolds(numCVFolds);
-		//		}
-		//		else
-		//		{
-		//			innerValidation.setRepetitions(numSplitRepetitions);
-		//			val = new Holdout();
-		//			((Holdout) val).setSplitRatio(splitRatio);
-		//		}
 		val.setStratified(stratified);
 		innerValidation.setValidation(val);
-		//		innerCV.setEvalCriterion(
-		//				new CVEvaluator.DefaultEvalCriterion(PredictionUtil.ClassificationMeasure.AUPRC));
 		innerValidation.setEvalCriterion(
 				new LowNumFeaturesEvalCriterion(PredictionUtil.ClassificationMeasure.AUPRC));
 		return innerValidation;
@@ -212,29 +201,11 @@ public class CFPCrossValidation
 	public MultiDatasetRunner<String> jobSelectModel() throws Exception
 	{
 		init();
-
 		MultiDatasetRunner<String> d = new MultiDatasetRunner<>();
-		//		ValidationEval innerValidations[] = new ValidationEval[data.size()];
-		//		for (int i = 0; i < innerValidations.length; i++)
-		//		{
-		//			boolean vs = loader.isVirtualScreeningDataset(data.get(i).getName());
-		//			innerValidations[i] = innerValidation(!vs);
-		//		}
 		d.setSameJobForAllDatasets(innerValidation());
 		d.setDataSets(ListUtil.toArray(data));
-
 		return d;
 	}
-
-	//	public static Model selectModelClassifier(String dataset) throws Exception
-	//	{
-	//		return selectModel(dataset).getModel();
-	//	}
-	//
-	//	public static CFPFeatureProvider selectModelFeatures(String dataset) throws Exception
-	//	{
-	//		return (CFPFeatureProvider) selectModel(dataset).getFeatureProvider();
-	//	}
 
 	public class ValidationToMeasures
 			extends DefaultJobOwner<HashMap<Integer, HashMap<ClassificationMeasure, Double>>>
@@ -484,28 +455,8 @@ public class CFPCrossValidation
 					if (addRuntime)
 						res.setResultValue(rIdx, PaperValidationResults.RUNTIME, runtime);
 				}
-
-				//				Predictions predictions = val.getResult();
-				//				List<Predictions> pList;
-				//				if (perFold)
-				//					pList = PredictionUtil.perFold(predictions);
-				//				else
-				//					pList = ListUtil.createList(predictions);
-
-				//				for (ClassificationMeasure m : measures)
-				//				{
-				//					for (Predictions p : pList)
-				//					{
-				//						if (perFold)
-				//							res.setResultValue(rIdx, "Fold", p.fold[0]);
-				//						res.setResultValue(rIdx, m.toString(), PredictionUtil
-				//								.getClassificationMeasure(p, m, d.getPositiveClass()));
-				//					}
-				//				}
-
 			}
 		}
-
 		return res;
 	}
 
@@ -513,40 +464,30 @@ public class CFPCrossValidation
 	{
 		init();
 
-		MultiDatasetRunner<String> d = new MultiDatasetRunner<>();
+		Model selectedModel;
+		if (featModels.size() > 1)
+		{
+			// default case with inner validation
+			selectedModel = new ValidatedModel();
+			((ValidatedModel) selectedModel).setValidationEvaluator(innerValidation());
+		}
+		else
+		{
+			// only 1 model, no need for inner validation
+			selectedModel = featModels.get(0);
+		}
 
-		//		ValidationEval outerValidations[] = new ValidationEval[data.size()];
-		//		for (int i = 0; i < outerValidations.length; i++)
-		//		{
-		//			boolean vs = loader.isVirtualScreeningDataset(data.get(i).getName());
-
-		//			ValidationEval innerVal = innerValidation(!vs);
-		ValidatedModel vModel = new ValidatedModel();
-		vModel.setValidationEvaluator(innerValidation());
 		ValidationEval outerVal = new ValidationEval();
-		outerVal.setModels(vModel);
-		Validation val;
-		//			if (!vs)
-		//			{
+		outerVal.setModels(selectedModel);
 		outerVal.setRepetitions(numCVRepetitions);
-		val = new CV();
+		Validation val = new CV();
 		((CV) val).setNumFolds(numCVFolds);
-		//			}
-		//			else
-		//			{
-		//				outerVal.setRepetitions(numSplitRepetitions);
-		//				val = new Holdout();
-		//				((Holdout) val).setSplitRatio(splitRatio);
-		//			}
 		val.setStratified(stratified);
 		outerVal.setValidation(val);
 
-		//			outerValidations[i] = outerVal;
-		//		}
+		MultiDatasetRunner<String> d = new MultiDatasetRunner<>();
 		d.setSameJobForAllDatasets(outerVal);
-
 		d.setDataSets(ListUtil.toArray(data));
-
 		return d;
 	}
 

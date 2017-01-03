@@ -7,6 +7,7 @@ import org.mg.cdklib.cfp.CFPMiner;
 import org.mg.cdklib.cfp.CFPType;
 import org.mg.cdklib.cfp.FeatureSelection;
 import org.mg.cdklib.data.CDKDataset;
+import org.mg.cdklib.data.DataProvider;
 import org.mg.cdklib.data.DataProvider.DataID;
 import org.mg.wekalib.eval2.data.DataSet;
 import org.mg.wekalib.eval2.data.WekaInstancesDataSet;
@@ -136,6 +137,8 @@ public class CFPFeatureProvider extends DefaultJobOwner<DataSet[]> implements Fe
 			// hack num is slightly > 4096, but not sufficient for internal validation
 			return false;
 		}
+		if (!DataProvider.cfpDatasets().contains(DataID.valueOf(dataSet.getName())))
+			return true;
 		int n = frags.getNumFeatures(DataID.valueOf(dataSet.getName()), getType());
 		return n > getHashfoldSize();
 	}

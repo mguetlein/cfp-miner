@@ -112,7 +112,7 @@ public class InnerValidationResults extends PaperValidationResults
 		CFPCrossValidation cv = CFPCrossValidation.paramOptimize();
 		cv.datasets = ListUtil.createList(dataset);
 		HashMap<String, FeatureModel> selectedAlgs = cv.selectBestModel();
-		return selectedAlgs.get(dataset);
+		return selectedAlgs.get(dataset.toString());
 	}
 
 	public static void main(String[] args) throws Exception
