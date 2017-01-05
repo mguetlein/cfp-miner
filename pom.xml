@@ -21,7 +21,7 @@
 		  <configuration>
 		    <archive>
 		      <manifest>
-		        <mainClass>org.kramerlab.cfpminer.experiments.RunCV</mainClass>
+		        <mainClass>org.kramerlab.cfpminer.experiments.validation.RunCV</mainClass>
 		      </manifest>
 			  <manifestEntries>
         	       <Permissions>all-permissions</Permissions>
