@@ -14,6 +14,7 @@ import org.mg.wekalib.eval2.Validation;
 import org.mg.wekalib.eval2.ValidationEval.EvalCriterion;
 import org.mg.wekalib.eval2.model.AbstractModel;
 import org.mg.wekalib.eval2.model.FeatureModel;
+import org.mg.wekalib.eval2.model.Model;
 import org.mg.wekalib.evaluation.PredictionUtil;
 import org.mg.wekalib.evaluation.Predictions;
 
@@ -80,9 +81,11 @@ public class LowNumFeaturesEvalCriterion implements EvalCriterion
 					rs.setResultValue(idx, "Features",
 							((CFPFeatureProvider) ((FeatureModel) cv.getModel())
 									.getFeatureProvider()).getHashfoldSize());
-					rs.setResultValue(idx, "Fast",
-							((AbstractModel) ((FeatureModel) cv.getModel()).getModel()).isFast() ? 1
-									: 0);
+					Model m = ((FeatureModel) cv.getModel()).getModel();
+					boolean fast = false;
+					if (m instanceof AbstractModel)
+						fast = ((AbstractModel) m).isFast();
+					rs.setResultValue(idx, "Fast", fast ? 1 : 0);
 					rs.setResultValue(idx, "Seed", cv.getRandomSeed());
 					if (cv instanceof CV)
 						rs.setResultValue(idx, "Fold", p.fold[0]);
