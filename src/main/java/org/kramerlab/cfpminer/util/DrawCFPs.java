@@ -59,7 +59,7 @@ public class DrawCFPs
 					IAtomContainer mol = CDKConverter.parseSmiles(d.getSmiles().get(compound));
 					int atoms[] = miner.getAtoms(mol, miner.getFragmentViaIdx(fragment));
 					BufferedImage img = CDKDepict.depictMatch(mol, atoms, true, Color.RED, false,
-							500);
+							500, true);
 
 					int numMatches = miner
 							.getAtomsMultipleDistinct(mol, miner.getFragmentViaIdx(fragment))
