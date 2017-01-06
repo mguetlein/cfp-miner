@@ -19,6 +19,7 @@ import org.mg.cdklib.data.DataProvider.DataID;
 import org.mg.cdklib.depict.CDKDepict;
 import org.mg.javalib.util.SwingUtil;
 import org.openscience.cdk.interfaces.IAtomContainer;
+import org.openscience.cdk.smarts.SmartsFragmentExtractor;
 
 public class DrawCFPs
 {
@@ -58,6 +59,13 @@ public class DrawCFPs
 				{
 					IAtomContainer mol = CDKConverter.parseSmiles(d.getSmiles().get(compound));
 					int atoms[] = miner.getAtoms(mol, miner.getFragmentViaIdx(fragment));
+
+					SmartsFragmentExtractor ext = new SmartsFragmentExtractor(mol);
+					ext.setMode(SmartsFragmentExtractor.MODE_EXACT);
+					System.out.println(ext.generate(atoms));
+					ext.setMode(SmartsFragmentExtractor.MODE_JCOMPOUNDMAPPER);
+					System.out.println(ext.generate(atoms));
+
 					BufferedImage img = CDKDepict.depictMatch(mol, atoms, true, Color.RED, false,
 							500, true);
 
